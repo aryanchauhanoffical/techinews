@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 /Users/aryanchauhan/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/scripts/search.py \"tech news intelligence developer feed content modern dark premium\" --design-system -p \"TechiNews\" -f markdown)",
+      "Bash(python3 /Users/aryanchauhan/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/scripts/search.py \"minimalism dark mode bento content\" --domain style -n 5)",
+      "Bash(python3 /Users/aryanchauhan/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/scripts/search.py \"feed swipe card vertical scroll\" --domain ux -n 6)",
+      "Bash(python3 /Users/aryanchauhan/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/scripts/search.py \"developer technical premium\" --domain color -n 4)",
+      "Bash(python3 /Users/aryanchauhan/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/scripts/search.py \"loading skeleton press feedback haptic\" --domain ux -n 5)",
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(awk '/^  share_plus:/{flag=1} flag{print; if\\(/version:/\\){flag=0}}' /Users/aryanchauhan/Downloads/techinews/pubspec.lock)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python scripts/test_apis.py)",
+      "Bash(.venv/bin/python scripts/probe_cf.py)",
+      "Bash(.venv/bin/python scripts/probe_cf2.py)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(python3 -c \"import secrets; print\\(secrets.token_urlsafe\\(32\\)\\)\")",
+      "Bash(.venv/bin/python scripts/test_worker.py)"
+    ]
+  }
+}
