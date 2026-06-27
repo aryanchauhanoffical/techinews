@@ -7,6 +7,7 @@ from typing import List, Optional
 import httpx
 
 from app.core.config import get_settings
+from app.core.ids import make_article_id
 from app.schemas.article import Article, ArticleSource, SourceType
 
 # Map domain → friendly source for nicer attribution in the UI.
@@ -99,7 +100,7 @@ def _to_article(h: dict) -> Article:
     except Exception:
         published_dt = datetime.utcnow()
     return Article(
-        id=f"newsapi_{abs(hash(url))}",
+        id=make_article_id(url),
         title=h["title"],
         summary=h.get("description"),
         body=h.get("content"),

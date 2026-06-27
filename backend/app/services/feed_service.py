@@ -1,12 +1,13 @@
-"""Feed service — reads from the pipeline's article store + provides ranking
-and search. The in-memory mock data has been retired; this serves real
-articles produced by the Gemini pipeline."""
+"""Feed service — reads enriched articles from the repository, applies
+interests-first ranking, and caches feed pages in Redis (5-min TTL).
+Search is delegated to the repository."""
 from __future__ import annotations
 
 from typing import List, Optional
 
+from app.db import redis_cache
 from app.schemas.article import Article
-from app.services.pipeline import STORE
+from app.services.article_repo import articles as repo
 
 
 class FeedService:
@@ -17,10 +18,20 @@ class FeedService:
         interests: Optional[List[str]] = None,
         min_trend: int = 30,
     ) -> List[Article]:
-        # Drop low-signal articles Gemini already flagged as borderline.
-        items = [a for a in STORE.list_sorted() if a.trend_score >= min_trend]
-        if interests:
-            terms = {t.lower() for t in interests}
+        norm_interests = sorted({i.strip() for i in (interests or []) if i.strip()})
+        cache_key = (
+            f"feed:{page}:{page_size}:{min_trend}:{','.join(norm_interests)}"
+        )
+        cached = await redis_cache.get_json(cache_key)
+        if cached is not None:
+            return [Article(**d) for d in cached]
+
+        # Candidates already trend-filtered + chronologically sorted by Mongo.
+        items = await repo.feed_candidates(min_trend=min_trend)
+
+        if norm_interests:
+            terms = {t.lower() for t in norm_interests}
+
             def matches(a: Article) -> bool:
                 bag = {x.lower() for x in (a.topics or []) + (a.companies or [])}
                 if any(t in bag for t in terms):
@@ -31,25 +42,22 @@ class FeedService:
                         if t in x or x in t:
                             return True
                 return False
+
             interested = [a for a in items if matches(a)]
-            others = [a for a in items if a not in interested]
-            # interests-first, fall back to chronological for the rest
+            interested_ids = {a.id for a in interested}
+            others = [a for a in items if a.id not in interested_ids]
             items = interested + others
+
         start = page * page_size
-        return items[start : start + page_size]
+        page_items = items[start : start + page_size]
+
+        await redis_cache.set_json(
+            cache_key, [a.model_dump(mode="json") for a in page_items], ttl=300
+        )
+        return page_items
 
     async def get_article(self, article_id: str) -> Optional[Article]:
-        return STORE.get(article_id)
+        return await repo.get(article_id)
 
     async def search(self, query: str) -> List[Article]:
-        q = query.lower().strip()
-        if not q:
-            return []
-        return [
-            a
-            for a in STORE.list_sorted()
-            if q in a.title.lower()
-            or (a.summary and q in a.summary.lower())
-            or any(q in t.lower() for t in (a.topics or []))
-            or any(q in c.lower() for c in (a.companies or []))
-        ]
+        return await repo.search(query)

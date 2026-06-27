@@ -50,10 +50,10 @@
 
 | Item | Priority | Why | Status |
 |---|---|---|---|
-| **Firebase project created** (note project ID) | 🔴 Blocker | Auth + FCM + Crashlytics + Analytics | ☐ |
-| `google-services.json` (Android) | 🔴 Blocker | Firebase Android config | ☐ |
-| `GoogleService-Info.plist` (iOS) | 🔴 Blocker | Firebase iOS config | ☐ |
-| **Firebase Admin SDK service account JSON** | 🔴 Blocker | Backend → FCM send + token verify | ☐ |
+| **Firebase project created** (note project ID) | 🔴 Blocker | Auth + FCM + Crashlytics + Analytics | ✅ `techinews-d7720` (Spark/free) |
+| `google-services.json` (Android) | 🔴 Blocker | Firebase Android config | ✅ placed at `android/app/` (pkg `com.techinews.app`) |
+| `GoogleService-Info.plist` (iOS) | 🔴 Blocker | Firebase iOS config | ☐ (iOS app not registered yet — Android-first) |
+| **Firebase Admin SDK service account JSON** | 🔴 Blocker | Backend → FCM send + token verify | ✅ `backend/secrets/firebase-admin.json`, verified |
 | Enable Sign-in providers: Google, Apple, GitHub, Email | 🟠 Soon | Auth flows | ☐ |
 | **Apple Developer account** ($99/yr) + Apple Sign-In Service ID + key | 🟠 Soon | iOS Apple Sign-In | ☐ |
 | **GitHub OAuth App** (client_id + client_secret) | 🟠 Soon | GitHub login | ☐ |
@@ -64,9 +64,9 @@
 
 | Item | Priority | Why | Status |
 |---|---|---|---|
-| **MongoDB Atlas cluster** — connection string (SRV URI) | 🔴 Blocker | Primary datastore | ☐ |
-| MongoDB Atlas — IP whitelist permission (allow 0.0.0.0/0 during dev) | 🔴 Blocker | Local dev access | ☐ |
-| **Redis Cloud / Upstash** — connection URL + password | 🔴 Blocker | Cache + Celery broker | ☐ |
+| **MongoDB Atlas cluster** — connection string (SRV URI) | 🔴 Blocker | Primary datastore | ✅ `Cluster0`, Mongo 8.0, verified |
+| MongoDB Atlas — IP whitelist permission (allow 0.0.0.0/0 during dev) | 🔴 Blocker | Local dev access | ✅ current IP whitelisted (add 0.0.0.0/0 before deploy) |
+| **Redis Cloud / Upstash** — connection URL + password | 🔴 Blocker | Cache + Celery broker | ✅ Redis Cloud free 30 MB, Redis 8.4, verified |
 | **Typesense Cloud** (or self-hosted) API key + host | 🟡 Mid | Search infrastructure | ☐ |
 | **PostgreSQL** instance _(Phase 2 / future)_ | 🟢 Late | Analytics & reporting | ☐ |
 
@@ -79,7 +79,7 @@
 | **Render or Railway account** + linked GitHub | 🟠 Soon | Backend hosting | ☐ |
 | **Cloudflare account** + domain you own | 🟡 Mid | CDN, DDoS, edge cache | ☐ |
 | **Domain name** for the platform | 🟡 Mid | API subdomain + web landing | ☐ |
-| **GitHub repository** (private) for codebase | 🔴 Blocker | Source control + CI/CD | ☐ |
+| **GitHub repository** (private) for codebase | 🔴 Blocker | Source control + CI/CD | ✅ github.com/aryanchauhanoffical/techinews |
 | **GitHub Actions** enabled (free tier OK) | 🟠 Soon | CI/CD pipeline | ☐ |
 
 ---

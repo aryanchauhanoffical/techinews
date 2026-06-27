@@ -174,6 +174,56 @@ Picked the project back up after a ~5-week gap. Confirmed the real ingestion pip
 
 ---
 
+## Sprint 3 — Infrastructure connected (2026-06-27)
+
+The four 🔴 infra blockers are now live and verified against the real backend. This unlocks Phases 1, 7, 9, 13.
+
+- **MongoDB Atlas** ✅ — free M0 cluster `Cluster0` (project `techinews`, Mumbai). `MONGO_URI` in `backend/.env`. Verified: `ping` ok, Mongo 8.0. DB `techinews` will materialize on first write.
+- **Redis Cloud** ✅ — free 30 MB DB `techinews` (Mumbai). `REDIS_URL` + both Celery URLs point at it (free tier = single logical DB, so cache + broker + results share it for now). Verified: ping + set/get, Redis 8.4.
+- **Firebase** ✅ — project `techinews-d7720` (Spark/free). Android app registered as `com.techinews.app`. Two files placed + gitignored: `android/app/google-services.json` (Flutter) and `backend/secrets/firebase-admin.json` (Admin SDK). Verified: `firebase_admin.initialize_app` succeeds, `messaging.send` + `auth.verify_id_token` reachable.
+- **GitHub repo** ✅ — pushed to [github.com/aryanchauhanoffical/techinews](https://github.com/aryanchauhanoffical/techinews), branch `main`, 220 files. Initial commit excludes all secrets.
+- **Secret hygiene:** GitHub push-protection caught live keys in `everyapi.md` → file removed from tracking + gitignored (keys already safely in `backend/.env`). Confirmed `.env`, `secrets/`, `firebase-admin.json`, `google-services.json` all untracked.
+- New backend deps installed in `.venv`: `pymongo[srv]`/`dnspython`, `redis`, `firebase-admin`.
+- ⚠️ **Pending rotation** (all exposed in chat during setup): Mongo DB password, Redis password, GitHub PAT (revoke now — push is done).
+
+---
+
+## Sprint 4 — Backend made real: persistence + cache + auth + FCM (2026-06-27)
+
+Turned the connected infra into working features. All verified against the live services.
+
+### Phase 9.1 — MongoDB persistence (replaces in-memory store)
+- [backend/app/core/ids.py](backend/app/core/ids.py) — `make_article_id()`: deterministic MD5-based IDs. Fixes the old `hash(url)` bug (salted per-process → IDs changed every restart, breaking `/articles/{id}`). [newsapi.py](backend/app/services/scrapers/newsapi.py) now uses it.
+- [backend/app/db/mongo.py](backend/app/db/mongo.py) — Motor async client, best-effort `connect()` (ping-verified), index setup, graceful close. Falls back to in-memory if Mongo down.
+- [backend/app/services/article_repo.py](backend/app/services/article_repo.py) — Mongo-backed `ArticleRepository` (singleton `articles`). Upsert on deterministic `_id` (idempotent), `feed_candidates()` (trend-filtered + chrono via Mongo), `get`, `search` (regex), `count`, `existing_ids`. In-memory fallback throughout.
+- Indexes created: `url` (unique), `published_at -1`, `trend_score -1`, `topics`.
+- [pipeline.py](backend/app/services/pipeline.py) + [feed_service.py](backend/app/services/feed_service.py) + [admin.py](backend/app/api/v1/admin.py) refactored off the deleted `STORE` onto the repo.
+
+### Phase 9.1 — Redis caching
+- [backend/app/db/redis_cache.py](backend/app/db/redis_cache.py) — async helpers (`get_json`/`set_json`/`clear_prefix`), best-effort (no-op if Redis down). Feed pages cached 5-min TTL, keyed by page/size/min_trend/interests. Pipeline clears `feed:*` on new articles.
+
+### Phase 1.1 — Firebase auth (backend)
+- [backend/app/services/firebase.py](backend/app/services/firebase.py) — Admin SDK init + `verify_id_token`. Best-effort: dev-user fallback when creds absent.
+- [backend/app/db/users_repo.py](backend/app/db/users_repo.py) — Mongo user store keyed by Firebase `uid`; `upsert_from_firebase`, profile update, `set_fcm_token`.
+- [backend/app/core/deps.py](backend/app/core/deps.py) — `get_current_user` dependency (Bearer token → verify → upsert).
+- [auth.py](backend/app/api/v1/auth.py) rewritten: `/verify`, `/me`, PATCH `/me`, `/fcm-token` now real (Mongo-backed, token-gated).
+
+### Phase 7.1 — FCM push (backend)
+- [backend/app/services/notifications.py](backend/app/services/notifications.py) — `send_to_token` / `send_to_tokens` (multicast). Admin `POST /admin/fcm/test?token=` for device testing.
+
+### main.py
+- [main.py](backend/app/main.py) lifespan now connects Mongo + Redis + Firebase on boot, closes on shutdown. `/health` reports `mongo`/`redis`/`firebase` booleans.
+
+### Verified end-to-end (live services)
+- `/health` → `{mongo:true, redis:true, firebase:true}`.
+- Pipeline run → 8 articles persisted to MongoDB `techinews.articles` (direct driver count confirms; all 5 indexes present).
+- **Persistence proven:** store held **16 articles across a full server restart** with no re-run (in-memory would reset to 0).
+- Caching: 2nd feed call ~3× faster; `feed:0:3:30:` key present in Redis.
+- Auth enforced: `/auth/me` no-token → 401, `/auth/verify` bad-token → 401 (Firebase live).
+- New venv deps: `motor`.
+
+---
+
 ## Pending Phases
 
 ### Phase 2 — Data Ingestion / Scraping

@@ -9,7 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import admin, articles, auth, trends
 from app.core.config import get_settings
-from app.services.pipeline import STORE, Pipeline
+from app.db import mongo, redis_cache
+from app.services import firebase
+from app.services.article_repo import articles as repo
+from app.services.pipeline import Pipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,11 +22,19 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Connect infra (all best-effort — failures degrade gracefully).
+    await mongo.connect()
+    await redis_cache.connect()
+    firebase.init()
+
     # Auto-run pipeline once at startup if store is empty (and SKIP_BOOT_PIPELINE != 1).
-    if STORE.size() == 0 and os.getenv("SKIP_BOOT_PIPELINE") != "1":
+    if os.getenv("SKIP_BOOT_PIPELINE") != "1" and await repo.count() == 0:
         logger.info("startup: store empty, kicking off pipeline (in background)")
         asyncio.create_task(_boot_pipeline())
     yield
+
+    await redis_cache.close()
+    await mongo.close()
 
 
 async def _boot_pipeline() -> None:
@@ -62,7 +73,13 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "time": datetime.utcnow().isoformat()}
+    return {
+        "status": "ok",
+        "time": datetime.utcnow().isoformat(),
+        "mongo": mongo.is_connected(),
+        "redis": redis_cache.is_connected(),
+        "firebase": firebase.available(),
+    }
 
 
 app.include_router(articles.router, prefix=settings.API_V1_PREFIX)

@@ -4,19 +4,19 @@ Stages:
   1. Discover  — NewsAPI top tech headlines + topic searches
   2. Extract   — Jina Reader pulls clean markdown; Firecrawl fallback
   3. Summarize — Gemini structured JSON: summary, key points, why-it-matters, tags
-  4. Store     — keep newest N articles in an in-memory list (Mongo-backed later)
+  4. Store     — persist via the article repository (MongoDB, in-memory fallback)
 
-Idempotent on article URL — re-running won't duplicate.
+Idempotent on article ID (deterministic from URL) — re-running won't duplicate.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-import threading
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from app.schemas.article import Article
+from app.services.article_repo import articles as repo
 from app.services.ai.summarizer import Summarizer
 from app.services.scrapers.firecrawl import Firecrawl
 from app.services.scrapers.jina_reader import JinaReader
@@ -36,52 +36,6 @@ TOPIC_QUERIES = [
     "Apple OR Google OR Microsoft OR NVIDIA OR Meta",
     "venture capital OR acquisition tech",
 ]
-
-
-class ArticleStore:
-    """Tiny thread-safe in-memory article cache. Swap with Mongo later."""
-
-    def __init__(self, max_items: int = 200):
-        self._items: Dict[str, Article] = {}
-        self._lock = threading.RLock()
-        self.max_items = max_items
-
-    def upsert_many(self, articles: List[Article]) -> int:
-        added = 0
-        with self._lock:
-            for a in articles:
-                key = a.url
-                if key not in self._items:
-                    added += 1
-                self._items[key] = a
-            # Trim oldest if over capacity
-            if len(self._items) > self.max_items:
-                sorted_items = sorted(
-                    self._items.items(),
-                    key=lambda kv: kv[1].published_at,
-                    reverse=True,
-                )[: self.max_items]
-                self._items = dict(sorted_items)
-        return added
-
-    def list_sorted(self) -> List[Article]:
-        with self._lock:
-            return sorted(self._items.values(), key=lambda a: a.published_at, reverse=True)
-
-    def get(self, article_id: str) -> Optional[Article]:
-        with self._lock:
-            for a in self._items.values():
-                if a.id == article_id:
-                    return a
-            return None
-
-    def size(self) -> int:
-        with self._lock:
-            return len(self._items)
-
-
-# Singleton store shared across the process.
-STORE = ArticleStore()
 
 
 class Pipeline:
@@ -111,9 +65,10 @@ class Pipeline:
                     continue
                 seen.add(a.url)
                 deduped.append(a)
-        # Drop ones we've already processed in a previous run
-        existing = {a.url for a in STORE.list_sorted()}
-        return [a for a in deduped if a.url not in existing]
+        # Drop ones we've already processed in a previous run (don't re-summarize
+        # — that costs Gemini tokens). IDs are deterministic from URL.
+        existing = await repo.existing_ids()
+        return [a for a in deduped if a.id not in existing]
 
     async def extract(self, article: Article) -> str:
         """Try Jina first (fast + free), fall back to Firecrawl."""
@@ -169,13 +124,18 @@ class Pipeline:
                 return await self.enrich(a)
 
         enriched = await asyncio.gather(*[_one(a) for a in to_process])
-        added = STORE.upsert_many(enriched)
+        added = await repo.upsert_many(enriched)
+        # New articles invalidate any cached feed pages.
+        if added:
+            from app.db import redis_cache
+
+            await redis_cache.clear_prefix("feed:")
         dt = (datetime.utcnow() - t0).total_seconds()
         stats = {
             "discovered": len(discovered),
             "processed": len(enriched),
             "added": added,
-            "store_size": STORE.size(),
+            "store_size": await repo.count(),
             "duration_sec": int(dt),
         }
         logger.info("pipeline run: %s", stats)
