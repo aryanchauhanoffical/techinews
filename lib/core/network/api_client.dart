@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Resolves the backend API base URL across emulator, simulator, and device.
@@ -21,6 +22,27 @@ Dio buildDio({String? baseUrl}) {
       receiveTimeout: const Duration(seconds: 30),
       sendTimeout: const Duration(seconds: 15),
       headers: const {'accept': 'application/json'},
+    ),
+  );
+  // Attach the current Firebase ID token (if signed in) to every request, so
+  // protected backend routes authenticate. Safe no-op when Firebase isn't
+  // initialized or no user is signed in.
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        try {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            final token = await user.getIdToken();
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          }
+        } catch (_) {
+          // Firebase not available — proceed unauthenticated
+        }
+        handler.next(options);
+      },
     ),
   );
   return dio;

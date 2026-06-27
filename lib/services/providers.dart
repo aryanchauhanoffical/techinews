@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import '../data/models/user.dart';
 import '../data/repositories/api_article_repository.dart';
 import '../data/repositories/article_repository.dart';
 import '../data/repositories/auth_repository.dart';
+import '../data/repositories/firebase_auth_repository.dart';
 import '../data/repositories/notifications_repository.dart';
 import '../data/repositories/trends_repository.dart';
 
@@ -37,9 +39,12 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>(
   (ref) => MockNotificationsRepository(),
 );
 
-final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => MockAuthRepository(),
-);
+// Use real Firebase auth when it's initialized and we're not in mock mode;
+// otherwise fall back to the in-memory mock (desktop/web/tests).
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  if (_useMock() || Firebase.apps.isEmpty) return MockAuthRepository();
+  return FirebaseAuthRepository(ref.watch(dioProvider));
+});
 
 // ------- User state -------
 final currentUserProvider = StateNotifierProvider<CurrentUserNotifier, AppUser?>(

@@ -224,6 +224,33 @@ Turned the connected infra into working features. All verified against the live 
 
 ---
 
+## Sprint 5 — Flutter Firebase wiring (2026-06-27)
+
+Connected the Flutter app to the live Firebase project + authenticated backend.
+
+### Phase 0 / Android config
+- **Fixed package-name mismatch:** Android `applicationId` was `com.example.techinews` but the Firebase app is `com.techinews.app`. Set `applicationId = "com.techinews.app"` in [android/app/build.gradle.kts](android/app/build.gradle.kts) so `google-services.json` matches. Bumped `minSdk` to ≥23 (Firebase Auth requirement).
+- Applied the **google-services Gradle plugin**: declared in [android/settings.gradle.kts](android/settings.gradle.kts) (`4.4.2 apply false`) + applied in the app module.
+- Enabled Firebase packages in [pubspec.yaml](pubspec.yaml): `firebase_core`, `firebase_auth`, `firebase_messaging`, `google_sign_in` (analytics/crashlytics/apple still commented). `flutter pub get` → +16 deps.
+
+### Phase 1.2 — real auth (Flutter)
+- [lib/main.dart](lib/main.dart) — `Firebase.initializeApp()` on boot (Android reads google-services.json natively; wrapped in try/catch so desktop/web degrade to mock).
+- [lib/data/repositories/firebase_auth_repository.dart](lib/data/repositories/firebase_auth_repository.dart) — real `AuthRepository`: Google sign-in → Firebase credential → POST ID token to `/auth/verify` (creates Mongo user) → returns backend profile. `updateProfile` PATCHes `/auth/me`. Apple/GitHub stubbed ("coming soon"); email → anonymous session for now.
+- [lib/core/network/api_client.dart](lib/core/network/api_client.dart) — Dio interceptor attaches `Authorization: Bearer <Firebase ID token>` to every request (safe no-op when signed out).
+- [lib/services/providers.dart](lib/services/providers.dart) — `authRepositoryProvider` uses `FirebaseAuthRepository` when Firebase is initialized + not mock mode, else `MockAuthRepository`.
+
+### Phase 7.2 — FCM (Flutter)
+- `firebase_auth_repository` registers the device FCM token on sign-in (`requestPermission` → `getToken` → POST `/auth/fcm-token`).
+
+### Verified
+- `flutter analyze` → **0 errors, 0 warnings** (30 pre-existing info lints unchanged). New files clean.
+- **Android debug APK built successfully** (`build/app/outputs/flutter-apk/app-debug.apk`, 154 MB) — proves the google-services Gradle wiring, package match, and Firebase SDK linkage are all correct.
+- Debug SHA-1 added to Firebase by user: `61:AB:15:43:93:E6:B3:E0:33:97:D1:8C:A1:BC:FC:76:15:F8:73:74`.
+- **Google sign-in provider enabled** in Firebase Auth; `google-services.json` re-downloaded and swapped in — now contains both OAuth clients (Android type-1 w/ SHA-1 + Web type-3 for ID tokens). Verified.
+- ⚠️ **Not yet runtime-tested** on a device/emulator. Note for the test: the Android emulator can't reach `127.0.0.1:8000` — `API_BASE_URL` in the Flutter `.env` must be `http://10.0.2.2:8000` (emulator→host) or the host LAN IP (physical device). Backend must be running.
+
+---
+
 ## Pending Phases
 
 ### Phase 2 — Data Ingestion / Scraping
