@@ -5,6 +5,129 @@
 
 ---
 
+## Sprint 12 — More sources: YouTube, Bluesky, dev communities (2026-09-09)
+
+- YouTube: 12 channels via keyless Atom feeds (`YOUTUBE_CHANNELS`, ids verified live against feed titles; several handle lookups first returned secondary channels like "Theo Rants" and "Lex Clips", so ids are pinned, not resolved at runtime). 3 latest videos per channel, thumbnail as image. `SourceType.youtube`.
+- Bluesky: 13 accounts via the public AT Protocol API, no auth (`BLUESKY_ACCOUNTS`, handles verified; note `howard.fm` is Jeremy Howard, `jeremyphoward` is a parody). Only posts carrying an external link become stories; likes+reposts feed the provisional score. `backend/app/services/scrapers/bluesky.py`, `SourceType.bluesky`.
+- Feeds added: Lobste.rs, dev.to, TLDR AI, Claude Code releases. Rejected after live test: The Batch, Ben's Bites, Cursor changelog, Anthropic RSS (all 404 or empty).
+- Reddit: re-tested. JSON endpoint 403, HTML is the throttling interstitial (as the user's reddit.py documents; that module depends on Zyte, a paid renderer). RSS stays. Official API is the clean fix and needs a client id + secret from the user.
+- Flutter: `ArticleSourceType` gains youtube/bluesky; brand marks for Lobste.rs, dev.to, Claude Code.
+- Dry run: 37 Bluesky linked posts, 36 videos, all with images. Total sources now 65.
+- Reddit via Zyte (user supplied key): `scrapers/reddit.py` renders each subreddit top page with `browserHtml`, parses `<shreddit-post>` attributes (title, score, comments, link, timestamp, image). 12 posts per subreddit, RSS reddit feeds skipped when the key is present, automatic RSS fallback otherwise. Verified: 100 posts per render, scores 50–94. Instagram (activeprogrammer) tested through RSS bridges and Instagram's endpoint: all blocked, needs Graph API approval.
+
+## Sprint 11 — Pop-art editorial redesign (2026-09-08)
+
+User supplied three mockups plus a transparent splash illustration (`techinews_imgs/`) and a full brief: "Apple News meets an editorial magazine meets pop-art illustration", exact colour tokens, display font for headlines, clean sans for body, handwriting only for annotations.
+
+- Tokens: canvas `#080D1A`, surfaces `#111827`/`#171F32`, text `#F8FAFC`/`#9AA6BA`, blue `#2495FF`, pink, yellow, green, purple, orange, cyan; `AppColors.hue(label)` gives a stable hue per topic.
+- Type: Shantell Sans 800 headlines, DM Sans body/UI/meta, Kalam only for stickers and annotations (`AppTypography.hand`).
+- New `lib/core/widgets/doodles.dart`: Spark, SpeedLines, Scribble underline, DoodleArrow, Sticker, StickyNote, PopCard (hue outline + glow), HueTag pill, PopBookmark (spark burst, reduced-motion aware), Wordmark.
+- Card system in `feed_card.dart`: StoryHero (A), TypeCard (B, image-less), StoryRow (C), TrendingCard (D), BreakingCard (E, score ≥90 and <6h).
+- Feed: wordmark + handwritten motto + bell, outlined search, sticker tabs incl. Companies, "Hot now" with flame + scribble, breaking card, carousel, hue hashtag topics, GitHub section with sparks, Latest mixes rows and type cards.
+- Splash: the provided illustration, "Already a user? Sign in", Get started with doodle arrow, Log back in. Wide layout side-by-side.
+- Onboarding: back, 3-segment progress, Skip, two-tone headline with pink scribble, sticky note, hue tiles with glow + check + bounce, CTA fills as picks land. Added Hardware to interests.
+- Article: category sticker on hero, reading time, "From the story" paragraphs cleaned from extracted body, hue hashtags, Related stories as a horizontal strip.
+- Discover: nine magazine section cards with hue outlines and live counts; repos and funding below. Saved: drawn empty state. Shell: 22px icons, blue scribble under the active tab, content capped at 760px on wide screens.
+- Fixed: Material shape+radius assertion on selection, bottom bar expanding to full height, stale web bundle during verification.
+- Verified in Chrome 390×844 with taps: splash, onboarding selection, feed, article, discover, saved.
+- Open Doodles (CC0) added: 9 SVGs extracted from the `react-open-doodles` npm package into `assets/illustrations/`, rendered by `DoodleFigure` (flutter_svg, recoloured per hue at load). Used on saved/feed/inbox/search/article empty states, sign-in, paywall, and the end of the feed. Kitbitz/unDraw need manual downloads (no public package), not wired.
+- Applied the three docs in `~/Downloads/techinews_imgs/` (asset rules, resources, redesign prompt): Phosphor is now the single icon family (`lib/core/theme/app_icons.dart`, semantic names, `phosphor_flutter`), Simple Icons brand marks for recognised sources in `SourceAvatar` (cdn.simpleicons.org, white), assets renamed descriptively (`doodle-*.svg`, `illustration-splash-hero.png`), `ASSET_CREDITS.md` added. Web-only items in those docs (shadcn, Tailwind, Motion) do not apply to Flutter.
+
+## Sprint 10 — "Night" redesign after the Artics reference (2026-09-08)
+
+User pointed at the Artics News App shot (Dribbble) and Newsadoo (Refero) and asked for the UI to match. Structure and mood adopted; two reference details dropped for house rules (fire emoji became an icon, pill chips became r=8 squares).
+
+- Tokens: navy canvas `#0E1320`, blue accent `#3B86F7`, ember `#F2994A` only for trend marks; radii 8/12/16. Fonts: Plus Jakarta Sans bold headlines, DM Sans everywhere else. `serif()`/`mono()` method names kept so no call-site sweep.
+- Primitives added to `ink_widgets.dart`: `SourceAvatar`, `TrendBadge`, `StatRow`, `SearchBarButton`, `TabStrip`; `InkImage(quiet:)`.
+- Feed: avatar + search + bell masthead, lens tabs (Top stories / Trending / Open source / Research, client-side), "Hot now" carousel of `TrendingCard`s with "Trending N" badges, hashtag `Topics` derived from the current page, From GitHub, Latest rows with right-hand thumbnails.
+- Article: 300px hero image with round glyph buttons, source row with avatar + Follow (adds source to Pro topic alerts, paywall for free), numbered key points, hashtag chips linking to search.
+- Splash: drawn signal globe (CustomPainter), "Your hourly digest", Get started / Log back in, tappable Terms and Privacy. Returning readers skip straight to the feed in under a second.
+- Onboarding: one step, 2-column topic tiles with check badges, "Pick N more" button until three are chosen.
+- Shell: Home / Discover / Saved / Account (Saved moved into the shell at `/saved`; Inbox now behind the bell at `/notifications` with a back button). Discover: "Latest topics" tiles.
+- Copy: every all-caps kicker converted to sentence case; short time forms lowercased (2d, 3h).
+- Verified in Chrome at 400×860: splash, onboarding, feed, article, discover. Analyzer clean. Servers killed after.
+
+## Sprint 9 — Shipaton infrastructure (2026-09-08)
+
+- RevenueCat catalog created via REST API v2 (entitlement `pro`, `pro_monthly` P1M, `pro_annual` P1Y, offering `default` current, packages linked). Test Store key in Flutter `.env`.
+- Topic alerts (Pro): Settings section, `topicAlertsProvider`, persisted in `LocalStore` (device-only until account sync).
+- Push job `backend/scripts/send_pushes.py`: instant (≥85, last 3 h, max 2/run), daily digest at the 08:07 IST run, weekly on Sundays; FCM image + deep-link data; `pushes` collection prevents double sends. Added as second step of the hourly workflow (cron moved to :37).
+- Firebase Admin accepts `FIREBASE_CREDENTIALS_JSON` (env) for Render/Actions. FCM multicast carries `image`.
+- `render.yaml` blueprint (free tier, Singapore, health check, secrets as sync:false). Dockerfile copies `scripts/`.
+- `README.md` rewritten for judges; `backend/.env.example` generated.
+- Verified: push job dry run (correctly nothing to send — no run since Sep 6 because Actions secrets are not set). `flutter analyze` clean.
+
+---
+
+## Sprint 8 — Feed quality, images, RevenueCat Pro (2026-09-06, Shipaton track)
+
+- Ranking: buzz decays with a 36 h half-life; whole-word hot terms; aggregator items with no tech signal get 0.72× base; equal lab weights.
+- Clustering (`ranking.cluster`): same story across sources within 96 h → lead gets `coverage`, `related_ids`, +4/source boost; primary sources preferred as lead. Astra now one lead story ×6.
+- Pipeline: `rescore_recent()` every run re-ranks the 10-day window (decay + clusters) and backfills 40 images/run; stats add `images_recovered`, `rescored`.
+- Images: GitHub OG cards (`opengraph.githubassets.com`), image-only OG pass; feed-window missing images 49% → 21%.
+- RSS: release feeds drop branch/CI tags; "Quoting …" posts skipped.
+- Flutter: `Article.coverage/relatedIds`; typographic fallback tile (`InkImage.label`); paginated `feedStateProvider` with infinite scroll; "From GitHub" section; "Also covered by" block; coverage badge in kickers.
+- RevenueCat: `lib/services/pro.dart` (configure from `REVENUECAT_API_KEY`, entitlement `pro`, purchase/restore/logIn, graceful `unavailable` on web); `features/pro/presentation/paywall_screen.dart` at `/pro`; gates: Instant alerts, free save cap 10; Profile shows Pro row + save count.
+- Docs: Phase S plan in WORK_TO_BE_DONE. `flutter analyze` clean. Not yet visually verified after this sprint (servers kept off per user).
+
+---
+
+## Sprint 7 — "Ink" redesign + real data everywhere (2026-09-06)
+
+**Design system** (replaces warm-cream/Inter/pill system; house rules from `CLAUDE_DESIGN copy.md` §A applied)
+- Tokens: charcoal canvas `#0C0E12`, one amber accent `#E8843C`, three ink levels, hairlines instead of card borders (`app_colors.dart`, `app_spacing.dart`)
+- Type: Newsreader (serif headlines) / DM Sans (UI) / JetBrains Mono (all metadata) via google_fonts (`app_typography.dart`)
+- Rectangular buttons (radius 10), square mono chips, four-tab nav (Feed · Discover · Inbox · You). Search moved under Discover.
+- New primitives: `core/widgets/ink_widgets.dart` (MetaLine, SectionHeader, LiveDot, EmptyState, ScoreMark, GutterDivider, InkImage), skeletons matching row shapes.
+- Removed: ambient gradient background, bolt-in-rounded-square logo, three-icon onboarding row, em dashes in copy.
+
+**Screens rewritten:** splash (wordmark + hairline draw, <1.2 s), onboarding (2 steps), sign-in (inline error, guest path), feed (masthead with "Updated · next run · +N new", hero + ranked rows + Earlier), article (lede, numbered key points, why-it-matters, repo cards, source CTA), discover (rising topics / repos / funding), search (debounced, suggestions), inbox, profile (interests sheet), saved, settings (notification mode, how-the-feed-is-built, legal links).
+
+**Data / persistence**
+- `data/local/local_store.dart` (SharedPreferences): saved ids + cached article JSON, read ids, guest interests, notification mode, onboarding flag, read-notification ids. Provided via `localStoreProvider` override in `main.dart`.
+- `savedIdsProvider` for instant toggle; `feedMetaProvider` reads `/articles/meta`.
+- Discover + Inbox now real: `ApiTrendsRepository`, `ApiNotificationsRepository` (mocks only when `USE_MOCK_DATA=true`).
+
+**Backend**
+- `trends_service.py` derives topics (7d vs prior 7d), repos, funding from Mongo. `$top` picks the best sample headline.
+- New `GET /api/v1/notifications` (breaking ≥85 / daily 08:00 IST digest / github / funding, all from stored stories).
+- New `GET /api/v1/articles/meta`; pipeline writes `meta.pipeline` {last_run, next_run, added…}. Cron now **hourly** (repo is public → unlimited Actions minutes).
+- GitHub collector: explicit-content blocklist.
+
+**Verified (Playwright, 400×860):** onboarding, feed, discover, inbox, profile, article, settings render; save → reload → Saved list ✅; interests sheet → 2 topics persisted ✅; weekly digest persisted ✅. `flutter analyze` clean. Android build not run this session (Mac only).
+
+**Added:** `PRIVACY.md`, `TERMS.md` drafts (linked from Settings; launch-gate items).
+
+---
+
+## Sprint 6 — Sourcing v2 + infra restore (2026-09-05 → 06)
+
+**Council decision** (llm-council skill, run inline): drop scraper sprawl and VM "agents"; keyless structured feeds + LLM on ranked top-N + GitHub Actions cron. Rationale in WORK_TO_BE_DONE §Phase 2.
+
+**Infra restored after ~70 days idle**
+- MongoDB Atlas M0 recreated (same host/user/password → existing `MONGO_URI` works). Redis Cloud DB deleted by provider; **deferred** — cache is already best-effort (`redis_cache.py`), Celery removed.
+- New free services wired + verified: GitHub fine-grained read token (5k req/h), Cloudflare Workers AI (FLUX.1-schnell test image OK), Supabase Storage bucket `images` (public read OK). Reddit app + HF token dropped (not needed).
+
+**Backend**
+- `app/services/sources.py` — 25 feeds + 12 release repos + hot-term vocab
+- `app/services/scrapers/{rss,github_trending,arxiv,huggingface,html_list}.py` — new collectors
+- `app/services/ranking.py` — score / dedup / diversify; `extract.py` — trafilatura→Jina→Firecrawl; `images.py` — OG→generated→Supabase
+- `app/services/pipeline.py` rewritten: collect → rank → enrich top-N → store all; stats include `unique_vs_hn`
+- `article_repo.feed_candidates` now 10-day window, trend_score desc
+- `scripts/run_pipeline.py` — `--dry-run` (no LLM, no writes) / `--limit`
+- `.github/workflows/collect.yml` — cron every 3h
+- Removed: `app/workers/`, celery + praw deps, NewsAPI from discovery. Added: `feedparser`, `trafilatura`.
+- Schema: `SourceType.arxiv`, `SourceType.huggingface`. Config: `HF_TOKEN`, `CLOUDFLARE_*`, `SUPABASE_*`.
+
+**Verified runs**
+- Dry run: ~500 items from 40 sources (Anthropic 8, Meta AI 8, GitHub 35, HN 29, arXiv 25, HF 34, …)
+- Real run `--limit 5`: 466 stored, 5 enriched via Gemini, 5/5 unique vs HN, 50 s. API `/health` mongo=true, feed serves.
+
+**Flutter**
+- `.env` `API_BASE_URL` → `http://localhost:8000` for Chrome testing (Mac; phone unavailable). Firebase web not configured → guest path.
+
+---
+
 ## Project Baseline (2026-05-24)
 
 What existed when this log was created:

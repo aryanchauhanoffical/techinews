@@ -18,7 +18,7 @@
 | Item | Priority | Why | Status |
 |---|---|---|---|
 | **Google Gemini API Key** (`gemini-2.5-flash`) | 🔴 Blocker | Article summarization, key points, why-it-matters, tagging | ✅ provided — **free tier quota hit during dev** (resets in 24h). Upgrade to billing-enabled tier removes the 250K-token/day cap. |
-| **NewsAPI.org key** | 🔴 Blocker | Article discovery / headlines | ✅ provided |
+| ~~NewsAPI.org key~~ | — | replaced by feeds (v2) | ❌ removed |
 | **Firecrawl API key** | 🔴 Blocker | Article extraction fallback (JS-heavy sites) | ✅ provided |
 | **Jina Reader API key** | 🔴 Blocker | Primary article extraction (markdown from any URL) | ✅ provided |
 | OpenAI API Key | 🟡 Mid | Optional second summarizer / embeddings | ☐ (skipped — Cloudflare path didn't pan out) |
@@ -29,20 +29,29 @@
 
 ---
 
-## 2. Scraping APIs / Services
+## 2. Sources / Scraping (v2 — 2026-09-05)
 
 | Item | Priority | Why | Status |
 |---|---|---|---|
-| **NewsAPI.org** | 🔴 Blocker | Headlines discovery | ✅ provided |
-| **Jina Reader** | 🔴 Blocker | Clean markdown extraction | ✅ provided |
-| **Firecrawl** | 🔴 Blocker | JS-rendered fallback | ✅ provided |
-| **Hacker News** — no key needed (public Algolia API) | ✅ | Free | ✅ |
-| **Apify API Token** + chosen actors | 🟠 Soon | X/Twitter scraping, advanced sites | ☐ |
-| **Reddit App credentials** (client_id, client_secret, user_agent) via PRAW | 🟠 Soon | Reddit post + discussion fetching | ☐ |
-| **GitHub Personal Access Token** (classic, with `public_repo` + `read:org`) | 🟠 Soon | GitHub REST/GraphQL — repos, trending, stars | ☐ |
-| **Product Hunt API Token** | 🟡 Mid | Product launches feed | ☐ |
-| **X / Twitter API access** — confirm path: official paid API ($100/mo Basic) **or** Apify actor only? | 🟠 Soon | Decision needed before X integration | ☐ |
-| Proxy/residential IP service (BrightData, Smartproxy, Oxylabs) for heavy scraping | 🟡 Mid | Avoid IP bans on aggressive scrapers | ☐ |
+| **RSS / Atom feeds, HN Algolia, arXiv API, GitHub release feeds, subreddit `.rss`** | ✅ | Primary discovery, keyless | ✅ live |
+| **GitHub fine-grained token** (public repos, read-only) | ✅ | GitHub search 5k req/h | ✅ in `backend/.env` |
+| **Jina Reader** / **Firecrawl** | 🟡 fallback | Extraction fallbacks behind local trafilatura | ✅ provided |
+| Hugging Face read token (`HF_TOKEN`) | 🟢 optional | Higher rate limit only | ☐ skipped (keyless works) |
+| ~~NewsAPI~~ | — | dev-only licence, 24h delay | ❌ removed from pipeline |
+| ~~Reddit Data API app~~ | — | approval flow is moderation-only | ❌ dropped → subreddit RSS |
+| ~~Apify / X API / proxies~~ | — | Not needed under v2 strategy | ❌ dropped |
+| Product Hunt API token | 🟢 optional | RSS already used | ☐ |
+
+### Images for notifications (free)
+| Item | Status |
+|---|---|
+| **Cloudflare Workers AI** (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`; FLUX.1-schnell) | ✅ verified |
+| **Supabase Storage** (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, bucket `images`, public) | ✅ verified |
+| Cloudflare R2 | ❌ skipped (needs card on file) |
+
+### GitHub Actions secrets — **user action, still needed**
+Repo → Settings → Secrets and variables → Actions → New repository secret. Copy values from `backend/.env`:
+`MONGO_URI`, `GEMINI_API_KEY`, `GH_READ_TOKEN` (= GITHUB_TOKEN value; GitHub reserves the name), `JINA_API_KEY`, `FIRECRAWL_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. `REDIS_URL` optional.
 
 ---
 
@@ -66,7 +75,7 @@
 |---|---|---|---|
 | **MongoDB Atlas cluster** — connection string (SRV URI) | 🔴 Blocker | Primary datastore | ✅ `Cluster0`, Mongo 8.0, verified |
 | MongoDB Atlas — IP whitelist permission (allow 0.0.0.0/0 during dev) | 🔴 Blocker | Local dev access | ✅ current IP whitelisted (add 0.0.0.0/0 before deploy) |
-| **Redis Cloud / Upstash** — connection URL + password | 🔴 Blocker | Cache + Celery broker | ✅ Redis Cloud free 30 MB, Redis 8.4, verified |
+| Redis Cloud / Upstash — connection URL | 🟢 optional | Feed cache only (best-effort); Celery removed | ☐ deferred 2026-09-05 — provider deleted idle free DB |
 | **Typesense Cloud** (or self-hosted) API key + host | 🟡 Mid | Search infrastructure | ☐ |
 | **PostgreSQL** instance _(Phase 2 / future)_ | 🟢 Late | Analytics & reporting | ☐ |
 
@@ -153,3 +162,17 @@ When you have keys ready, you can either:
 3. Use a secrets manager (1Password, Doppler) and share access
 
 **Never commit any keys to git.** A `.env.example` template will be created with placeholder values so the structure is visible without leaking secrets.
+
+
+## Reddit via Zyte (done 2026-09-09)
+
+User supplied a Zyte API key (saved in `backend/.env` as `ZYTE_API_KEY`). `RedditCollector` renders each subreddit's top page through Zyte once per run (4 renders/hour). Add `ZYTE_API_KEY` to the GitHub Actions secrets. Free trial credit is limited; after it runs out the collector logs a failure and RSS takes over automatically.
+
+## Optional: Reddit official API
+
+Reddit blocks both the JSON endpoint (403) and plain HTML (interstitial) for non-browser clients, so only the RSS feeds work and they throttle after the first one. The clean fix is a free "script" app at https://www.reddit.com/prefs/apps which gives:
+
+- `REDDIT_CLIENT_ID`
+- `REDDIT_CLIENT_SECRET`
+
+Add both to `backend/.env` and the Actions secrets. Not needed for the demo; Hacker News, Lobste.rs and Bluesky cover the discussion signal.

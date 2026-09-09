@@ -4,6 +4,29 @@
 
 ---
 
+## Phase S — Shipaton 2026 Next Gen submission (deadline 2026-09-30 11:45pm PDT)
+
+> Judged on: app idea clarity, functional progress, thoughtful RevenueCat integration, technical choices. Video + open-source repo. No store release.
+
+**User (Sep 6–7):** Devpost account with academic email + join Shipaton · RevenueCat project + Test Store app → API key · GitHub Actions secrets.
+
+**Build (Sep 6–12)**
+- [x] Feed quality: story clustering (coverage count), 36 h recency half-life, equal lab weights, hourly re-score of the 10-day window
+- [x] Images: GitHub OG cards, image-only OG pass for new items + 40/run backfill, typographic fallback tile in app (49% → 21% missing)
+- [x] Feed: "From GitHub" section, infinite scroll, coverage badge, "Also covered by" on article
+- [x] RevenueCat: purchases_flutter 10.11, `pro` entitlement, Ink paywall (`/pro`), gating (Instant alerts, 10-save free cap), restore, logIn on sign-in. Test Store key in .env; catalog created via API v2 (entitlement `pro`, `pro_monthly`, `pro_annual`, offering `default`). **Prices + 7-day trial still to set in dashboard; not yet run on Android.**
+- [x] Topic alerts setting (Pro) — UI, device-stored · [ ] backend push filter once profile sync lands
+- [x] `render.yaml` blueprint + `FIREBASE_CREDENTIALS_JSON` support · [ ] **user clicks Deploy on Render** · [ ] app pointed at Render URL · [ ] **Actions secrets (user)** → hourly cron + push job live
+- [x] README for judges: architecture, sourcing v2, ranking, RevenueCat design, how to run
+
+**Ship (Sep 20–29)**
+- [ ] Demo video script (≤2 min, device recording ~Sep 24)
+- [ ] 1024² icon + screenshots (optional for Next Gen, include anyway)
+- [ ] Devpost text: features, RevenueCat story, tech choices
+- [ ] Submit by Sep 28 (buffer)
+
+---
+
 ## Phase 0 — Foundations (Setup)
 
 ### 0.1 Flutter Project Setup
@@ -58,26 +81,49 @@
 
 ---
 
-## Phase 2 — Data Ingestion / Scraping Layer (Backend)
+## Phase 2 — Data Ingestion Layer (Backend) — **v2, council verdict 2026-09-05**
 
-### 2.1 Scraper Services
-- [ ] RSS feed ingester (TechCrunch, The Verge, Wired, Ars Technica, Hacker News)
-- [ ] Hacker News API integration (top, new, show)
-- [ ] Reddit API integration (PRAW) — fetch top posts from r/MachineLearning, r/programming, r/startups, r/technology, r/artificial
-- [ ] GitHub Trending scraper (via Firecrawl + GitHub REST API)
-- [ ] Product Hunt API integration
-- [ ] X/Twitter scraper (via Apify actor)
-- [ ] Generic web article scraper (Firecrawl + BeautifulSoup fallback)
-- [ ] AI blog scrapers (OpenAI blog, Anthropic blog, Google AI, Meta AI, NVIDIA blog)
+> Decision: no scraper sprawl, no self-bot "agents". Keyless structured feeds
+> first, LLM only on the ranked top-N, collector runs as a GitHub Actions cron
+> (no VM, no Celery). Uniqueness metric = items surfaced that are NOT on the HN
+> front page (`unique_vs_hn` in pipeline stats).
 
-### 2.2 Scraping Pipeline
-- [ ] Celery worker setup with Redis broker
-- [ ] Scheduled scraping jobs (Celery Beat: every 15min / 1h / 6h tiers)
-- [ ] Deduplication logic (URL hash + title similarity)
-- [ ] Content cleaner (strip HTML, ads, boilerplate)
-- [ ] Raw article storage in MongoDB
-- [ ] Error handling + retry logic
-- [ ] Rate limiter per source
+### 2.1 Collectors (all keyless unless noted)
+- [x] RSS/Atom collector — 25 feeds: lab blogs, press, newsletters, dev-tool blogs, subreddit `.rss`, Product Hunt (`app/services/sources.py`)
+- [x] GitHub release Atom feeds for 12 key repos (ollama, llama.cpp, vllm, transformers, …)
+- [x] Hacker News (Algolia front page)
+- [x] GitHub search API — new repos ≥150★ in 7d + topic:llm / ai-agents / mcp (token = 5k req/h)
+- [x] arXiv API — cs.AI / cs.LG / cs.CL newest
+- [x] Hugging Face — daily papers + trending models (HF_TOKEN optional)
+- [x] Listing-page collector for sites without feeds — Anthropic news, Meta AI blog (`html_list.py`)
+- [ ] RSSHub (self-hosted) for public Telegram channels / Bluesky — only if uniqueness metric stalls
+- [ ] Official TechiNews Discord/Telegram **bot** that communities invite (opt-in) — Phase 5, not a self-bot
+- [ ] YouTube channel RSS (AI labs, key creators)
+- [ ] Reddit: r/LocalLLaMA, r/artificial, r/programming still 429 even serialized — try 10s gap or drop
+- ~~NewsAPI~~ removed (dev-only licence, 24h delay, 100 req/day)
+- ~~Reddit Data API app~~ dropped (moderation-only approval flow); subreddit RSS used instead
+
+### 2.2 Ranking / dedup (no LLM cost)
+- [x] Heuristic score: source weight × type base + hot-term hits + engagement (points/stars/upvotes) + recency (`ranking.py`)
+- [x] Cross-source dedup: URL + title token Jaccard ≥ 0.75
+- [x] Per-source cap (4) before enrichment so corporate feeds can't flood the top
+- [ ] Learn weights from user engagement once the app has traffic (Phase 6)
+
+### 2.3 Extraction / enrichment
+- [x] Local extraction with trafilatura (free) → Jina → Firecrawl fallback (`extract.py`)
+- [x] Gemini summary only for top-N per run (default 30); everything else stored with its feed summary
+- [x] Image: source image → OG image → Cloudflare Workers AI FLUX.1-schnell generated + uploaded to Supabase Storage, generation only when score ≥ 75 (`images.py`)
+- [ ] Repo linking: match enriched articles to GitHub repos mentioned in body (Phase 4)
+
+### 2.4 Scheduling
+- [x] `.github/workflows/collect.yml` — every 3h + manual dispatch; secrets listed in REQUIREMENTS_NEEDED §5
+- [ ] Add repo secrets on GitHub (user action) and run the workflow once by hand
+- [ ] Alert (workflow failure → email) — GitHub does this by default for the repo owner
+- ~~Celery Beat / worker~~ removed
+
+### 2.5 Feed
+- [x] Feed order: last 10 days, trend_score desc then newest (was date-only)
+- [ ] "New since you last opened" divider in the app (freshness signal)
 
 ---
 
@@ -165,51 +211,22 @@
 
 ---
 
-## Phase 8 — Flutter UI / Feed Experience
+## Phase 8 — Flutter UI / Feed Experience — **redesigned 2026-09-06 ("Ink")**
 
-### 8.1 Core Navigation
-- [ ] Bottom navigation (Feed, Discover, Notifications, Profile)
-- [ ] App theme (light + dark mode)
-- [ ] Custom fonts + typography system
-- [ ] Color palette + design tokens
-
-### 8.2 Feed Screen (Short-Form / Inshorts-style)
-- [ ] Vertical card swipe (PageView.builder)
-- [ ] Article card: image, headline, source, AI summary, key points
-- [ ] Swipe up = next article
-- [ ] Tap = open full article view
-- [ ] Save / Share / "Not interested" actions
-- [ ] Pull-to-refresh
-- [ ] Pagination / infinite scroll
-
-### 8.3 Article Detail Screen
-- [ ] Full AI summary
-- [ ] "Why it matters" section
-- [ ] Related GitHub repos section
-- [ ] Reddit discussions section
-- [ ] X threads section
-- [ ] Read full article (in-app browser via `flutter_inappwebview`)
-- [ ] Share + Save buttons
-
-### 8.4 Discover / Trends Screen
-- [ ] Trending topics
-- [ ] Trending GitHub repos
-- [ ] Trending startups
-- [ ] Funding announcements
-- [ ] Category browser
-
-### 8.5 Search Screen
-- [ ] Search bar with semantic search
-- [ ] Filters (date, topic, source, company)
-- [ ] Search results list
-
-### 8.6 Profile / Settings Screen
-- [ ] Edit interests
-- [ ] Notification preferences
-- [ ] Theme toggle
-- [ ] Saved articles
-- [ ] Reading history
-- [ ] Account / Sign out
+- [x] Design system: tokens, type (Newsreader / DM Sans / JetBrains Mono), spacing, primitives (`core/widgets/ink_widgets.dart`)
+- [x] Splash, 2-step onboarding, sign-in with guest path
+- [x] Feed: masthead with collector status, hero + ranked rows, skeletons, empty/error states, pull-to-refresh
+- [x] Article: lede, key points, why-it-matters, tags, related repos, discussions, source CTA, save/share
+- [x] Discover (real topics/repos/funding), Search, Inbox (real, derived), Profile (interests sheet), Saved, Settings
+- [x] Local persistence for saves/reads/interests/notification mode
+- [ ] Android device pass (fonts load, image CORS is web-only, push permission prompt)
+- [ ] iOS: register Firebase app, Notification Service Extension for images
+- [ ] Firebase **web** app registration so Google sign-in works in Chrome (guest path works now)
+- [ ] "New since you last opened" divider in the feed
+- [ ] Sign-in → sync saved ids/interests to backend `/auth/me` (currently device-local)
+- [ ] Discussions: HN comment fetch for enriched stories (schema exists, collector doesn't fill it yet)
+- [ ] App icon + splash asset for Android/iOS (wordmark-based, no bolt)
+- [ ] Review `PRIVACY.md` / `TERMS.md` drafts, host them (launch gate)
 
 ---
 
