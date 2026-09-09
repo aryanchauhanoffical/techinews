@@ -8,15 +8,13 @@ python-dotenv==1.0.1
 motor==3.6.0
 pymongo==4.10.1
 
-# Cache + queue
+# Cache (optional)
 redis==5.2.0
-celery==5.4.0
 
 # HTTP + scraping
 httpx==0.28.1
 beautifulsoup4==4.12.3
 feedparser==6.0.11
-praw==7.8.1
 
 # AI providers (added when keys provided)
 openai==1.54.4
@@ -37,3 +35,4 @@ pytest==8.3.3
 pytest-asyncio==0.24.0
 black==24.10.0
 ruff==0.7.2
+trafilatura==2.2.0

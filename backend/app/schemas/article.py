@@ -12,6 +12,10 @@ class SourceType(str, Enum):
     reddit = "reddit"
     product_hunt = "product_hunt"
     github = "github"
+    arxiv = "arxiv"
+    huggingface = "huggingface"
+    youtube = "youtube"
+    bluesky = "bluesky"
 
 
 class ArticleSource(BaseModel):
@@ -72,6 +76,9 @@ class Article(BaseModel):
     key_points: List[str] = Field(default_factory=list)
     related_repos: List[GithubRepo] = Field(default_factory=list)
     discussions: List[SocialPost] = Field(default_factory=list)
+    coverage: int = 1  # how many sources carry this story (cluster size)
+    llm_score: Optional[int] = None  # Gemini's significance estimate, kept separate from the heuristic
+    related_ids: List[str] = Field(default_factory=list)  # other articles in the cluster
 
 
 class FeedResponse(BaseModel):

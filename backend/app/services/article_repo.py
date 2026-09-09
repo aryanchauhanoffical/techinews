@@ -9,6 +9,8 @@ upserts are idempotent on URL without a separate unique-key dance.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 import logging
 import threading
 from typing import Dict, List, Optional
@@ -84,15 +86,20 @@ class ArticleRepository:
         ids = await db.articles.distinct("_id")
         return set(ids)
 
-    async def feed_candidates(self, min_trend: int = 0) -> List[Article]:
+    async def feed_candidates(self, min_trend: int = 0, window_days: int = 10) -> List[Article]:
+        """Recent items (last `window_days`), best first: trend_score desc, then newest.
+        Enriched top stories therefore lead; the long tail of unenriched feed
+        items fills in behind them."""
+        since = datetime.utcnow() - timedelta(days=window_days)
         db = mongo.get_db()
         if db is None:
             with self._lock:
-                items = [a for a in self._mem.values() if a.trend_score >= min_trend]
-            return sorted(items, key=lambda a: a.published_at, reverse=True)
+                items = [a for a in self._mem.values()
+                         if a.trend_score >= min_trend and a.published_at >= since]
+            return sorted(items, key=lambda a: (a.trend_score, a.published_at), reverse=True)
         cursor = (
-            db.articles.find({"trend_score": {"$gte": min_trend}})
-            .sort("published_at", -1)
+            db.articles.find({"trend_score": {"$gte": min_trend}, "published_at": {"$gte": since}})
+            .sort([("trend_score", -1), ("published_at", -1)])
             .limit(FEED_CANDIDATE_LIMIT)
         )
         return [_from_doc(d) async for d in cursor]

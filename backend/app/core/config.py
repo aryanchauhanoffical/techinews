@@ -23,8 +23,6 @@ class Settings(BaseSettings):
     MONGO_URI: str = "mongodb://localhost:27017"
     MONGO_DB: str = "techinews"
     REDIS_URL: str = "redis://localhost:6379/0"
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
     # Pipeline
     GEMINI_API_KEY: str = ""
@@ -32,6 +30,7 @@ class Settings(BaseSettings):
     NEWSAPI_KEY: str = ""
     JINA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    ZYTE_API_KEY: str = ""
 
     # Future
     APIFY_API_TOKEN: str = ""
@@ -40,7 +39,14 @@ class Settings(BaseSettings):
     REDDIT_USER_AGENT: str = "techinews/0.1"
     GITHUB_TOKEN: str = ""
     PRODUCTHUNT_TOKEN: str = ""
+    HF_TOKEN: str = ""
+    CLOUDFLARE_ACCOUNT_ID: str = ""
+    CLOUDFLARE_API_TOKEN: str = ""
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_BUCKET: str = "images"
     FIREBASE_CREDENTIALS_PATH: str = ""
+    FIREBASE_CREDENTIALS_JSON: str = ""  # raw service-account JSON, for hosts without a filesystem secret
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 

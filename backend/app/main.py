@@ -7,7 +7,7 @@ from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import admin, articles, auth, trends
+from app.api.v1 import admin, articles, auth, trends, notifications
 from app.core.config import get_settings
 from app.db import mongo, redis_cache
 from app.services import firebase
@@ -86,3 +86,4 @@ app.include_router(articles.router, prefix=settings.API_V1_PREFIX)
 app.include_router(trends.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
+app.include_router(notifications.router, prefix=settings.API_V1_PREFIX)

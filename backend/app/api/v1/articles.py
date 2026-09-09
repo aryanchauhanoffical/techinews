@@ -19,6 +19,15 @@ async def get_feed(
     return FeedResponse(items=items, next_page=page + 1 if len(items) == page_size else None)
 
 
+@router.get("/meta")
+async def feed_meta():
+    """When the collector last ran and when it runs next (hourly cron)."""
+    from app.db import mongo
+    db = mongo.get_db()
+    doc = await db.meta.find_one({"_id": "pipeline"}) if db is not None else None
+    return doc or {"_id": "pipeline", "last_run": None, "next_run": None, "added": 0, "interval_minutes": 60}
+
+
 @router.get("/search", response_model=List[Article])
 async def search(q: str = Query(..., min_length=1)):
     return await service.search(q)

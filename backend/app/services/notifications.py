@@ -35,6 +35,7 @@ def send_to_tokens(
     title: str,
     body: str,
     data: Optional[Dict[str, str]] = None,
+    image: Optional[str] = None,
 ) -> dict:
     """Multicast to many devices. Returns success/failure counts."""
     from firebase_admin import messaging
@@ -42,7 +43,8 @@ def send_to_tokens(
     if not tokens:
         return {"success": 0, "failure": 0}
     message = messaging.MulticastMessage(
-        notification=messaging.Notification(title=title, body=body),
+        notification=messaging.Notification(title=title, body=body, image=image),
+        android=messaging.AndroidConfig(priority="high", notification=messaging.AndroidNotification(image=image)),
         data={k: str(v) for k, v in (data or {}).items()},
         tokens=tokens,
     )

@@ -1,0 +1,50 @@
+# Render Blueprint — deploys the FastAPI backend on the free tier.
+# Dashboard → New → Blueprint → pick this repo. Fill the sync:false secrets
+# from backend/.env when prompted. Free instances sleep after 15 min idle
+# and wake on the first request (~30 s), which the app tolerates.
+services:
+  - type: web
+    name: techinews-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SKIP_BOOT_PIPELINE
+        value: "1"
+      - key: MONGO_DB
+        value: techinews
+      - key: CORS_ORIGINS
+        value: "http://localhost:3000,http://localhost:8080"
+      - key: MONGO_URI
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: JINA_API_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
