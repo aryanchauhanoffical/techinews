@@ -14,7 +14,7 @@
 - [x] Feed quality: story clustering (coverage count), 36 h recency half-life, equal lab weights, hourly re-score of the 10-day window
 - [x] Images: GitHub OG cards, image-only OG pass for new items + 40/run backfill, typographic fallback tile in app (49% → 21% missing)
 - [x] Feed: "From GitHub" section, infinite scroll, coverage badge, "Also covered by" on article
-- [x] RevenueCat: purchases_flutter 10.11, `pro` entitlement, Ink paywall (`/pro`), gating (Instant alerts, 10-save free cap), restore, logIn on sign-in. Test Store key in .env; catalog created via API v2 (entitlement `pro`, `pro_monthly`, `pro_annual`, offering `default`). **Prices + 7-day trial still to set in dashboard; not yet run on Android.**
+- [x] RevenueCat: purchases_flutter 10.11, `pro` entitlement, Ink paywall (`/pro`), gating (Instant alerts, 10-save free cap), restore, logIn on sign-in. Test Store key in .env; catalog created via API v2 (entitlement `pro`, `pro_monthly`, `pro_annual`, offering `default`). Prices set 2026-09-09 ($3.99 monthly, $29 annual) via the dashboard internal API; no trial (Test Store UI exposes none). **Not yet run on Android.**
 - [x] Topic alerts setting (Pro) — UI, device-stored · [ ] backend push filter once profile sync lands
 - [x] `render.yaml` blueprint + `FIREBASE_CREDENTIALS_JSON` support · [ ] **user clicks Deploy on Render** · [ ] app pointed at Render URL · [ ] **Actions secrets (user)** → hourly cron + push job live
 - [x] README for judges: architecture, sourcing v2, ranking, RevenueCat design, how to run
