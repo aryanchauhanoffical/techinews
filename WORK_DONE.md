@@ -423,3 +423,12 @@ Connected the Flutter app to the live Firebase project + authenticated backend.
 
 ### Phase 15 — Testing
 - _Smoke test only. Real suites pending._
+
+## Sprint 14 — Phone build, icon, repo hooks, push copy (2026-09-09)
+- Release keystore `android/keystore/techinews-release.jks` + `android/key.properties` (gitignored; generated with the Android Studio JDK 21 — JDK 25 keytool output is unreadable by Gradle). `build.gradle.kts` signs release *and* profile with it; falls back to debug key when absent (CI).
+- Sideload build for testing: `flutter build apk --profile` → `~/Downloads/techinews-test.apk`. Release builds crash with the RevenueCat Test Store key by SDK design.
+- Manifest: `POST_NOTIFICATIONS`, FCM `default_notification_icon` (`drawable/ic_stat_notification`, white silhouette of the pop bell at 5 densities) + `default_notification_color` #2495FF.
+- Launcher icons from `assets/icon/icon-full.png` (1024, navy corners) and `icon-foreground.png` (art at 78% for the adaptive safe zone); `playstore-512.png`; `assets/icon/notification-glyph.png`.
+- `backend/app/services/ai/repo_hook.py`: README (GitHub API, stripped of badges/html/code) → Gemini → `{hook ≤48ch, pitch ≤110ch, alt_to}` stored on `GithubRepo`; `Pipeline._hook_repos` applies at enrich time (title → `owner/name: hook`, summary → pitch); `backfill_repo_hooks(12)` per run. Seeded 40 live.
+- `backend/app/services/ai/push_copy.py`: Blinkit/Zepto-style push writer (emoji-led title ≤38ch, body ≤90ch, benefit first, no lies) + deterministic fallback. `send_pushes.py` uses it for breaking + digest ("☕ 5 stories before standup"); fallback image = pop bell on Supabase (`images/brand/notification-bell.jpg`).
+- Flutter: `GithubRepo.hook/pitch/altTo`; `RepoCard` leads with the hook in Shantell 19 + pink "Free alternative to X" tag; `pro.dart` picks `REVENUECAT_STORE_KEY` in release, test key otherwise.

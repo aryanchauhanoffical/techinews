@@ -67,7 +67,7 @@ class RepoCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 // The sell. Big, display voice, colour-coded when it replaces something famous.
                 Text(hook, style: AppTypography.serif(19, weight: FontWeight.w800, height: 1.15, color: AppColors.ink), maxLines: 2, overflow: TextOverflow.ellipsis),
-                if (repo.altTo != null && repo.altTo!.isNotEmpty) ...[
+                if (repo.altTo != null && repo.altTo!.isNotEmpty && repo.altTo!.split(' ').length <= 2) ...[
                   const SizedBox(height: 6),
                   HueTag('Free alternative to ${repo.altTo}', hue: AppColors.pink, dense: true),
                 ],

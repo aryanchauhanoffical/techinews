@@ -38,7 +38,9 @@ Given a GitHub repo (name, description, README), return JSON:
   If it's a library/paper/dataset, say what it lets you DO, not what it IS.
 - pitch: <= 110 characters. One plain sentence a developer would trust:
   who it's for and the one concrete thing it does. No hype adjectives.
-- alt_to: the well-known product it replaces or competes with, or "" if none.
+- alt_to: the well-known PAID product or SaaS it replaces (ElevenLabs, Notion, Cursor,
+  Vercel, Datadog). One brand name, max 2 words. "" unless a developer would instantly
+  recognise it as a product they could pay for. Never a prize, paper, standard, or concept.
 
 Respond ONLY with the JSON object."""
 
@@ -108,7 +110,9 @@ async def generate(full_name: str, description: str, readme: Optional[str] = Non
         hook = RepoHook(**parsed)
         hook.hook = _clean(hook.hook, 56)
         hook.pitch = _clean(hook.pitch, 130)
-        hook.alt_to = _clean(hook.alt_to, 40)
+        hook.alt_to = _clean(hook.alt_to, 24)
+        if len(hook.alt_to.split()) > 2:
+            hook.alt_to = ""
         return hook if hook.hook else None
     except Exception as e:  # noqa: BLE001
         logger.info("repo hook failed for %s: %s", full_name, e)

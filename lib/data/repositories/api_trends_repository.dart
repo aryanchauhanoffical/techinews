@@ -52,5 +52,8 @@ GithubRepo repoFromJson(Map<String, dynamic> j) => GithubRepo(
       forks: (j['forks'] ?? 0) as int,
       starsThisWeek: (j['stars_this_week'] ?? 0) as int,
       readmeExcerpt: j['readme_excerpt'] as String?,
+      hook: j['hook'] as String?,
+      pitch: j['pitch'] as String?,
+      altTo: j['alt_to'] as String?,
       lastCommit: j['last_commit'] == null ? null : DateTime.tryParse(j['last_commit'] as String),
     );

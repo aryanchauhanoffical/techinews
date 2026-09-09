@@ -14,7 +14,7 @@
 - [x] Feed quality: story clustering (coverage count), 36 h recency half-life, equal lab weights, hourly re-score of the 10-day window
 - [x] Images: GitHub OG cards, image-only OG pass for new items + 40/run backfill, typographic fallback tile in app (49% → 21% missing)
 - [x] Feed: "From GitHub" section, infinite scroll, coverage badge, "Also covered by" on article
-- [x] RevenueCat: purchases_flutter 10.11, `pro` entitlement, Ink paywall (`/pro`), gating (Instant alerts, 10-save free cap), restore, logIn on sign-in. Test Store key in .env; catalog created via API v2 (entitlement `pro`, `pro_monthly`, `pro_annual`, offering `default`). Prices set 2026-09-09 ($3.99 monthly, $29 annual) via the dashboard internal API; no trial (Test Store UI exposes none). **Not yet run on Android.**
+- [x] RevenueCat: purchases_flutter 10.11, `pro` entitlement, Ink paywall (`/pro`), gating (Instant alerts, 10-save free cap), restore, logIn on sign-in. Test Store key in .env; catalog created via API v2 (entitlement `pro`, `pro_monthly`, `pro_annual`, offering `default`). Prices set 2026-09-09 ($3.99 monthly, $29 annual) via the dashboard internal API; no trial (Test Store UI exposes none). Ran on a Nothing CMF Phone 1 (Android 16) 2026-09-09: feed OK. **Test Store keys crash non-debuggable builds** ("Wrong API Key" dialog) → sideload with `flutter build apk --profile` (release-signed, debuggable). `pro.dart` reads `REVENUECAT_STORE_KEY` in release builds; blocked on creating the Play Store app in RevenueCat (needs Play Console listing).
 - [x] Topic alerts setting (Pro) — UI, device-stored · [ ] backend push filter once profile sync lands
 - [x] `render.yaml` blueprint + `FIREBASE_CREDENTIALS_JSON` support · [ ] **user clicks Deploy on Render** · [ ] app pointed at Render URL · [ ] **Actions secrets (user)** → hourly cron + push job live
 - [x] README for judges: architecture, sourcing v2, ranking, RevenueCat design, how to run
@@ -219,13 +219,15 @@
 - [x] Article: lede, key points, why-it-matters, tags, related repos, discussions, source CTA, save/share
 - [x] Discover (real topics/repos/funding), Search, Inbox (real, derived), Profile (interests sheet), Saved, Settings
 - [x] Local persistence for saves/reads/interests/notification mode
-- [ ] Android device pass (fonts load, image CORS is web-only, push permission prompt)
+- [x] Android device pass 2026-09-09 (profile APK on Nothing CMF Phone 1; feed + discover OK)
+- [ ] Register release-key SHA-1 in Firebase (Google sign-in on release/profile builds)
+- [ ] RevenueCat: add Play Store app → `goog_` key → `REVENUECAT_STORE_KEY` (after Play Console listing)
 - [ ] iOS: register Firebase app, Notification Service Extension for images
 - [ ] Firebase **web** app registration so Google sign-in works in Chrome (guest path works now)
 - [ ] "New since you last opened" divider in the feed
 - [ ] Sign-in → sync saved ids/interests to backend `/auth/me` (currently device-local)
 - [ ] Discussions: HN comment fetch for enriched stories (schema exists, collector doesn't fill it yet)
-- [ ] App icon + splash asset for Android/iOS (wordmark-based, no bolt)
+- [x] App icon (user artwork, 2026-09-09) on Android adaptive / iOS / web / macOS via flutter_launcher_icons; monochrome bell status-bar glyph + blue accent for FCM
 - [ ] Review `PRIVACY.md` / `TERMS.md` drafts, host them (launch gate)
 
 ---
