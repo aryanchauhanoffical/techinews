@@ -78,6 +78,7 @@ dev_dependencies:
   riverpod_generator: ^2.4.3
   custom_lint: ^0.7.3
   riverpod_lint: ^2.6.3
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -88,3 +89,19 @@ flutter:
     - assets/icons/
     - assets/mock/
     - .env
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/icon-full.png
+  adaptive_icon_background: "#010F22"
+  adaptive_icon_foreground: assets/icon/icon-foreground.png
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: assets/icon/icon-full.png
+    background_color: "#010F22"
+    theme_color: "#2495FF"
+  macos:
+    generate: true
+    image_path: assets/icon/icon-full.png

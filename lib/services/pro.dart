@@ -35,7 +35,12 @@ class ProNotifier extends StateNotifier<ProState> {
   static const freeSaveLimit = 10;
 
   Future<void> _init() async {
-    final key = dotenv.maybeGet('REVENUECAT_API_KEY') ?? '';
+    // RevenueCat kills non-debuggable builds that carry a Test Store key
+    // ("Wrong API Key" dialog). Release builds therefore need the store key
+    // (goog_/appl_); debug and profile builds keep using the test key.
+    final key = kReleaseMode
+        ? (dotenv.maybeGet('REVENUECAT_STORE_KEY') ?? dotenv.maybeGet('REVENUECAT_API_KEY') ?? '')
+        : (dotenv.maybeGet('REVENUECAT_API_KEY') ?? '');
     final supported = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
     if (key.isEmpty || !supported) {
       state = const ProState(ProStatus.unavailable);

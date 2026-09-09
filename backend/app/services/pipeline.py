@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 from app.schemas.article import Article
+from app.services.ai import repo_hook
 from app.services.ai.summarizer import Summarizer
 from pymongo import UpdateOne
 
@@ -83,8 +84,10 @@ class Pipeline:
             topics = result.topics or article.topics
             image = await resolve_image(article.id, article.title, topics, score, article.image_url or github_card(article.url), og)
             logger.info("enriched: %r | text=%d score=%d img=%s", article.title[:60], len(content), score, bool(image))
+            repos, title, summary = await self._hook_repos(article, content)
             return article.model_copy(update={
-                "summary": result.summary or article.summary,
+                "related_repos": repos, "title": title or article.title,
+                "summary": summary or result.summary or article.summary,
                 "key_points": result.key_points, "why_it_matters": result.why_it_matters,
                 "topics": topics, "companies": result.companies, "stack": result.stack or article.stack,
                 "trend_score": score, "image_url": image, "llm_score": result.trend_score,
@@ -93,6 +96,37 @@ class Pipeline:
         except Exception as e:  # noqa: BLE001
             logger.exception("enrich failed for %s: %s", article.url, e)
             return article
+
+    async def _hook_repos(self, article: Article, readme_hint: str = ""):
+        """For GitHub-sourced stories, replace the maintainer description with a
+        reader-facing hook. Returns (repos, title_override, summary_override)."""
+        if not article.related_repos or article.source.id != "src_github":
+            return article.related_repos, None, None
+        repos = list(article.related_repos)
+        r0 = repos[0]
+        if r0.hook:
+            return repos, None, None
+        hook = await repo_hook.generate(r0.full_name, r0.description, readme=readme_hint if len(readme_hint) > 400 else None)
+        if not hook:
+            return repos, None, None
+        repos[0] = r0.model_copy(update={"hook": hook.hook, "pitch": hook.pitch, "alt_to": hook.alt_to})
+        return repos, f"{r0.full_name}: {hook.hook}", hook.pitch or None
+
+    async def backfill_repo_hooks(self, limit: int = 12) -> int:
+        """Older GitHub stories stored before hooks existed get one per run,
+        newest first, until the whole shelf reads like a pitch."""
+        cands = [a for a in await repo.feed_candidates(window_days=21)
+                 if a.source.id == "src_github" and a.related_repos and not a.related_repos[0].hook]
+        cands.sort(key=lambda a: a.published_at, reverse=True)
+        done = []
+        for a in cands[:limit]:
+            repos, title, summary = await self._hook_repos(a)
+            if repos[0].hook:
+                done.append(a.model_copy(update={"related_repos": repos, "title": title or a.title, "summary": summary or a.summary}))
+        if done:
+            await repo.upsert_many(done)
+        logger.info("repo hooks backfilled: %d of %d pending", len(done), len(cands))
+        return len(done)
 
     async def run(self, limit: int = 30, concurrency: int = 4, store_unenriched: bool = True) -> Dict[str, int]:
         t0 = datetime.utcnow()
@@ -113,13 +147,14 @@ class Pipeline:
             await redis_cache.clear_prefix("feed:")
 
         rescored = await self.rescore_recent()
+        hooked = await self.backfill_repo_hooks()
 
         # Uniqueness metric: how much of what we surfaced is NOT on the HN front page.
         hn_urls = {a.url for a in fresh if a.source.id == "src_hn"}
         non_hn = sum(1 for a in head if a.url not in hn_urls)
         stats = {
             "collected_new": len(fresh), "enriched": len(enriched), "stored": len(to_store),
-            "added": added, "unique_vs_hn": non_hn, "images_recovered": recovered, "rescored": rescored, "store_size": await repo.count(),
+            "added": added, "unique_vs_hn": non_hn, "images_recovered": recovered, "rescored": rescored, "repo_hooks": hooked, "store_size": await repo.count(),
             "duration_sec": int((datetime.utcnow() - t0).total_seconds()),
         }
         logger.info("pipeline run: %s", stats)

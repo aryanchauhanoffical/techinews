@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.db import mongo  # noqa: E402
 from app.services import firebase  # noqa: E402
 from app.services.article_repo import _from_doc  # noqa: E402
+from app.services.ai import push_copy  # noqa: E402
 from app.services.notifications import send_to_tokens  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s — %(message)s")
@@ -33,6 +34,12 @@ log = logging.getLogger("pushes")
 
 DIGEST_HOUR_UTC = 2  # 08:00 IST edition; the :37 cron lands at 08:07 IST
 INSTANT_MIN_SCORE = 85
+# Pop-art bell shown as the notification's large icon when a story has no image.
+BELL_IMAGE = "https://ajycieqvkssmbuctnqib.supabase.co/storage/v1/object/public/images/brand/notification-bell.jpg"
+
+
+def _hook(a) -> str | None:
+    return a.related_repos[0].hook if a.related_repos and a.related_repos[0].hook else None
 
 
 async def _tokens_for(db, mode: str) -> list[str]:
@@ -63,7 +70,8 @@ async def instant(db, dry: bool) -> list:
     cur = db.articles.find({"trend_score": {"$gte": INSTANT_MIN_SCORE}, "published_at": {"$gte": since}}).sort("trend_score", -1).limit(2)
     async for d in cur:
         a = _from_doc(d)
-        out.append(await _send(db, f"instant:{a.id}", "breaking", tokens, a.title, (a.summary or a.source.name)[:140], a.id, a.image_url, dry))
+        copy = await push_copy.write(a.title, a.summary or "", a.topics, hook=_hook(a), breaking=True)
+        out.append(await _send(db, f"instant:{a.id}", "breaking", tokens, copy.title, copy.body, a.id, a.image_url or BELL_IMAGE, dry))
     return out
 
 
@@ -75,10 +83,15 @@ async def digest(db, kind: str, dry: bool) -> dict:
     if not top:
         return {"skipped": "no stories"}
     lead = top[0]
-    title = f"Your {'daily' if kind == 'daily' else 'weekly'} digest: {len(top)} stories"
-    body = f"{lead.title[:80]}. Also {top[1].source.name}, {top[2].source.name}." if len(top) > 2 else lead.title[:120]
+    # Digest = the lead story sold like a push, with the count as the kicker.
+    # "☕ 5 stories before standup" outperforms "Your daily digest".
+    lead_copy = await push_copy.write(lead.title, lead.summary or "", lead.topics, hook=_hook(lead))
+    n = len(top)
+    title = f"☕ {n} stories before standup" if kind == "daily" else f"☕ The week in {n} stories"
+    body = lead_copy.title.split(" ", 1)[-1] if lead_copy.title else lead.title
+    body = f"{body}. Plus {n - 1} more." if len(body) <= 74 else body[:90]
     key = f"{kind}:{now:%Y-%m-%d}"
-    return await _send(db, key, "digest", tokens, title, body, lead.id, lead.image_url, dry)
+    return await _send(db, key, "digest", tokens, title, body, lead.id, lead.image_url or BELL_IMAGE, dry)
 
 
 async def main() -> int:

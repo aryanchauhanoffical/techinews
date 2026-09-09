@@ -36,6 +36,10 @@ class GithubRepo(BaseModel):
     stars_this_week: int = 0
     readme_excerpt: Optional[str] = None
     last_commit: Optional[datetime] = None
+    # LLM-written card copy (see services/ai/repo_hook.py). None until enriched.
+    hook: Optional[str] = None
+    pitch: Optional[str] = None
+    alt_to: Optional[str] = None
 
 
 class SocialPlatform(str, Enum):

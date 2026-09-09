@@ -75,3 +75,7 @@ everyapi.md
 # Local design references, not part of the app
 CLAUDE_DESIGN copy.md
 refero.design - */
+
+# Android release signing (never commit)
+android/key.properties
+android/keystore/

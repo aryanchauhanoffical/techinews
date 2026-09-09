@@ -26,6 +26,8 @@ class RepoCard extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final parts = repo.fullName.split('/');
     final trending = repo.starsThisWeek > 0;
+    final hook = repo.hook;
+    final sub = hook != null ? (repo.pitch ?? repo.description) : repo.description;
     return PopCard(
       hue: AppColors.hairlineStrong,
       padding: const EdgeInsets.fromLTRB(16, 14, 14, 12),
@@ -61,9 +63,18 @@ class RepoCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (repo.description.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(repo.description, style: t.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
+              if (hook != null) ...[
+                const SizedBox(height: 8),
+                // The sell. Big, display voice, colour-coded when it replaces something famous.
+                Text(hook, style: AppTypography.serif(19, weight: FontWeight.w800, height: 1.15, color: AppColors.ink), maxLines: 2, overflow: TextOverflow.ellipsis),
+                if (repo.altTo != null && repo.altTo!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  HueTag('Free alternative to ${repo.altTo}', hue: AppColors.pink, dense: true),
+                ],
+              ],
+              if (sub.isNotEmpty) ...[
+                SizedBox(height: hook != null ? 6 : 4),
+                Text(sub, style: t.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
               ],
               const SizedBox(height: AppSpacing.md),
               Row(

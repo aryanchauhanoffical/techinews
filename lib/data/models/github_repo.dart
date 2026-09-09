@@ -11,6 +11,11 @@ class GithubRepo extends Equatable {
   final int starsThisWeek;
   final String? readmeExcerpt;
   final DateTime? lastCommit;
+  /// Reader-facing pitch written from the README ("Free ElevenLabs alternative").
+  /// Null until the backend has enriched the repo; fall back to [description].
+  final String? hook;
+  final String? pitch;
+  final String? altTo;
 
   const GithubRepo({
     required this.id,
@@ -23,6 +28,9 @@ class GithubRepo extends Equatable {
     this.starsThisWeek = 0,
     this.readmeExcerpt,
     this.lastCommit,
+    this.hook,
+    this.pitch,
+    this.altTo,
   });
 
   @override
