@@ -5,6 +5,15 @@
 
 ---
 
+## Sprint 13 — Live: Actions cron, Render API, secrets (2026-09-09)
+
+- Repo pushed to github.com/aryanchauhanoffical/techinews (public). History scanned: no secrets ever committed.
+- 11 Actions secrets set via the REST API (user widened the fine-grained PAT to Secrets + Actions read/write). Local helpers: `backend/scripts/print_secrets.py`, `print_render_env.py`.
+- First runs surfaced three CI-only bugs, all fixed: pymongo pin conflicted with motor; `upsert_many` crashed on a duplicate URL (now skipped and logged); Firebase init ignored `FIREBASE_CREDENTIALS_JSON` (now parses it). Run 3 green: 231 added, 30 enriched, 57 images, 885 stored, 161 s, 2 pushes logged.
+- Render web service `techinews-api` (srv-dagl8q6q1p3s73bpg010, Singapore, free) created via Render API with a key the user supplied (`RENDER_API_KEY` in backend/.env). First deploy failed on missing `email-validator`; `pydantic[email]` pinned; live at https://techinews-api.onrender.com, auto-deploys on push. Flutter `.env` now points at it.
+- `keepalive.yml` pings /health every 10 min so the free instance never sleeps mid-demo.
+- Nothing runs on the user's Mac any more: collection on Actions, API on Render, data on Atlas.
+
 ## Sprint 12 — More sources: YouTube, Bluesky, dev communities (2026-09-09)
 
 - YouTube: 12 channels via keyless Atom feeds (`YOUTUBE_CHANNELS`, ids verified live against feed titles; several handle lookups first returned secondary channels like "Theo Rants" and "Lex Clips", so ids are pinned, not resolved at runtime). 3 latest videos per channel, thumbnail as image. `SourceType.youtube`.
