@@ -1,0 +1,14 @@
+# Render's free tier sleeps after 15 idle minutes and takes ~40 s to wake.
+# A ping every 10 minutes keeps the API warm so the app never shows the wake-up
+# stall. Public repo: Actions minutes are free.
+name: keep-api-warm
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: curl -fsS --max-time 60 https://techinews-api.onrender.com/health
