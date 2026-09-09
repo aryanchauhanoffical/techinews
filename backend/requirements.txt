@@ -6,7 +6,7 @@ python-dotenv==1.0.1
 
 # Database
 motor==3.6.0
-pymongo==4.10.1
+pymongo==4.9.2
 
 # Cache (optional)
 redis==5.2.0
