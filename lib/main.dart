@@ -5,6 +5,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
+import 'data/local/local_store.dart';
+import 'services/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,5 +28,9 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  runApp(const ProviderScope(child: TechiNewsApp()));
+  final store = await LocalStore.open();
+  runApp(ProviderScope(
+    overrides: [localStoreProvider.overrideWithValue(store)],
+    child: const TechiNewsApp(),
+  ));
 }

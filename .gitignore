@@ -71,3 +71,7 @@ backend/.coverage
 
 # Local API key scratch dump — never commit
 everyapi.md
+
+# Local design references, not part of the app
+CLAUDE_DESIGN copy.md
+refero.design - */

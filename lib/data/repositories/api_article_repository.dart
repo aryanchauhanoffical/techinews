@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../local/local_store.dart';
+
 import '../models/article.dart';
 import '../models/github_repo.dart';
 import '../models/social_post.dart';
@@ -7,12 +9,13 @@ import 'article_repository.dart';
 
 /// HTTP-backed ArticleRepository — talks to the FastAPI backend.
 class ApiArticleRepository implements ArticleRepository {
-  ApiArticleRepository(this._dio);
+  ApiArticleRepository(this._dio, this._store);
   final Dio _dio;
+  final LocalStore _store;
 
-  // Local-only save/read tracking. (Backend doesn't persist per-user state yet.)
-  final Set<String> _saved = {};
-  final Set<String> _read = {};
+  /// Raw JSON of every article seen this session, so a save can be cached
+  /// locally without a second request.
+  final Map<String, Map<String, dynamic>> _raw = {};
 
   @override
   Future<List<Article>> fetchFeed({
@@ -29,6 +32,9 @@ class ApiArticleRepository implements ArticleRepository {
       },
     );
     final items = (r.data['items'] as List).cast<Map<String, dynamic>>();
+    for (final j in items) {
+      _raw[j['id'] as String] = j;
+    }
     return items.map(_articleFromJson).map(_decorate).toList();
   }
 
@@ -36,7 +42,9 @@ class ApiArticleRepository implements ArticleRepository {
   Future<Article?> fetchArticle(String id) async {
     try {
       final r = await _dio.get('/api/v1/articles/$id');
-      return _decorate(_articleFromJson(r.data as Map<String, dynamic>));
+      final j = r.data as Map<String, dynamic>;
+      _raw[id] = j;
+      return _decorate(_articleFromJson(j));
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
       rethrow;
@@ -56,31 +64,43 @@ class ApiArticleRepository implements ArticleRepository {
 
   @override
   Future<List<Article>> saved() async {
-    if (_saved.isEmpty) return [];
+    final ids = _store.savedIds;
+    if (ids.isEmpty) return [];
     final out = <Article>[];
-    for (final id in _saved) {
+    for (final id in ids) {
+      final cached = _store.cachedArticle(id) ?? _raw[id];
+      if (cached != null) {
+        out.add(_decorate(_articleFromJson(cached)));
+        continue;
+      }
       final a = await fetchArticle(id);
       if (a != null) out.add(a);
     }
+    out.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
     return out;
   }
 
   @override
   Future<void> toggleSave(String articleId) async {
-    if (_saved.contains(articleId)) {
-      _saved.remove(articleId);
+    final ids = _store.savedIds;
+    if (ids.remove(articleId)) {
+      await _store.dropArticle(articleId);
     } else {
-      _saved.add(articleId);
+      ids.add(articleId);
+      final j = _raw[articleId];
+      if (j != null) await _store.cacheArticle(articleId, j);
     }
+    await _store.setSaved(ids);
   }
 
   @override
   Future<void> markRead(String articleId) async {
-    _read.add(articleId);
+    final ids = _store.readIds..add(articleId);
+    await _store.setRead(ids);
   }
 
   Article _decorate(Article a) =>
-      a.copyWith(isSaved: _saved.contains(a.id), isRead: _read.contains(a.id));
+      a.copyWith(isSaved: _store.savedIds.contains(a.id), isRead: _store.readIds.contains(a.id));
 }
 
 // ---------- JSON mapping (backend snake_case → Flutter camelCase) ----------
@@ -100,6 +120,8 @@ Article _articleFromJson(Map<String, dynamic> j) {
     companies: ((j['companies'] as List?) ?? const []).cast<String>(),
     stack: ((j['stack'] as List?) ?? const []).cast<String>(),
     trendScore: (j['trend_score'] as num?)?.toInt() ?? 0,
+    coverage: (j['coverage'] as num?)?.toInt() ?? 1,
+    relatedIds: ((j['related_ids'] as List?) ?? const []).cast<String>(),
     viralityScore: (j['virality_score'] as num?)?.toInt() ?? 0,
     whyItMatters: j['why_it_matters'] as String?,
     keyPoints: ((j['key_points'] as List?) ?? const []).cast<String>(),
@@ -131,6 +153,10 @@ ArticleSourceType _sourceType(String s) {
       return ArticleSourceType.hackerNews;
     case 'reddit':
       return ArticleSourceType.reddit;
+    case 'youtube':
+      return ArticleSourceType.youtube;
+    case 'bluesky':
+      return ArticleSourceType.bluesky;
     case 'product_hunt':
       return ArticleSourceType.productHunt;
     case 'github':

@@ -1,103 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'app_colors.dart';
+
+/// Three voices:
+///  - Shantell Sans, heavy: headlines, wordmark, section titles, buttons.
+///    A display face with a hand-cut edge, still a proper text font.
+///  - DM Sans: body copy, controls, metadata. Clean and highly legible.
+///  - Kalam: handwriting, reserved for annotations, stickers and doodle
+///    captions. Never for paragraphs.
+/// `serif` and `mono` keep their names so call sites read as "headline
+/// voice" and "metadata voice" without a rename sweep.
 class AppTypography {
   AppTypography._();
 
-  static TextTheme build(Color primary, Color secondary, Color muted) {
-    final base = GoogleFonts.interTextTheme();
-    return base.copyWith(
-      displayLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 36,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.5,
-        color: primary,
-      ),
-      displayMedium: GoogleFonts.spaceGrotesk(
-        fontSize: 30,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.5,
-        color: primary,
-      ),
-      displaySmall: GoogleFonts.spaceGrotesk(
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-        color: primary,
-      ),
-      headlineLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 22,
-        fontWeight: FontWeight.w700,
-        color: primary,
-      ),
-      headlineMedium: GoogleFonts.spaceGrotesk(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: primary,
-      ),
-      headlineSmall: GoogleFonts.spaceGrotesk(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: primary,
-      ),
-      titleLarge: GoogleFonts.inter(
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
-        color: primary,
-      ),
-      titleMedium: GoogleFonts.inter(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-        color: primary,
-      ),
-      titleSmall: GoogleFonts.inter(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: secondary,
-      ),
-      bodyLarge: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        color: primary,
-        height: 1.5,
-      ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: secondary,
-        height: 1.5,
-      ),
-      bodySmall: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: muted,
-        height: 1.4,
-      ),
-      labelLarge: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: primary,
-      ),
-      labelMedium: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: secondary,
-      ),
-      labelSmall: GoogleFonts.inter(
-        fontSize: 11,
-        fontWeight: FontWeight.w500,
-        color: muted,
-      ),
-    );
-  }
-
-  static TextStyle mono({
-    double size = 13,
-    FontWeight weight = FontWeight.w400,
-    Color? color,
-  }) =>
-      GoogleFonts.jetBrainsMono(
+  /// Headline voice.
+  static TextStyle serif(double size,
+          {FontWeight weight = FontWeight.w800,
+          double height = 1.15,
+          double spacing = -0.2,
+          Color color = AppColors.ink}) =>
+      GoogleFonts.shantellSans(
         fontSize: size,
         fontWeight: weight,
+        height: height,
+        letterSpacing: spacing,
         color: color,
       );
+
+  static TextStyle sans(double size,
+          {FontWeight weight = FontWeight.w400,
+          double height = 1.5,
+          double spacing = 0,
+          Color color = AppColors.ink}) =>
+      GoogleFonts.dmSans(
+        fontSize: size,
+        fontWeight: weight,
+        height: height,
+        letterSpacing: spacing,
+        color: color,
+      );
+
+  /// Metadata voice: sources, timestamps, counts.
+  static TextStyle mono(double size,
+          {FontWeight weight = FontWeight.w500,
+          double spacing = 0,
+          Color color = AppColors.inkSecondary}) =>
+      GoogleFonts.dmSans(
+        fontSize: size,
+        fontWeight: weight,
+        letterSpacing: spacing,
+        height: 1.3,
+        color: color,
+      );
+
+  /// Handwriting. Annotations, stickers, doodle captions only.
+  static TextStyle hand(double size,
+          {FontWeight weight = FontWeight.w700,
+          double height = 1.15,
+          Color color = AppColors.yellow}) =>
+      GoogleFonts.kalam(
+        fontSize: size,
+        fontWeight: weight,
+        height: height,
+        color: color,
+      );
+
+  /// Small metadata line: Hacker News · 2d
+  static TextStyle kicker({Color color = AppColors.inkMuted}) =>
+      mono(12.5, color: color);
+
+  static TextTheme build() {
+    return TextTheme(
+      displayLarge: serif(42, height: 1.05, spacing: -0.8),
+      displayMedium: serif(34, height: 1.08, spacing: -0.6),
+      displaySmall: serif(27, height: 1.15, spacing: -0.4),
+      headlineLarge: serif(25, height: 1.2, spacing: -0.3),
+      headlineMedium: serif(21, height: 1.25),
+      headlineSmall: serif(17.5, weight: FontWeight.w700, height: 1.3),
+      titleLarge: serif(18, weight: FontWeight.w700, height: 1.3),
+      titleMedium: sans(15.5, weight: FontWeight.w600, height: 1.35),
+      titleSmall: sans(13.5, weight: FontWeight.w600, height: 1.35, color: AppColors.inkSecondary),
+      bodyLarge: sans(16.5, height: 1.6, color: AppColors.inkSecondary),
+      bodyMedium: sans(14.5, height: 1.55, color: AppColors.inkSecondary),
+      bodySmall: sans(12.5, height: 1.45, color: AppColors.inkMuted),
+      labelLarge: serif(15, weight: FontWeight.w700, height: 1.2),
+      labelMedium: sans(12.5, weight: FontWeight.w600, height: 1.2, color: AppColors.inkSecondary),
+      labelSmall: mono(11.5, color: AppColors.inkMuted),
+    );
+  }
 }

@@ -1,355 +1,348 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import '../../../../core/theme/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/format.dart';
+import '../../../../core/widgets/doodles.dart';
+import '../../../../core/widgets/ink_widgets.dart';
 import '../../../../core/widgets/press_scale.dart';
-import '../../../../core/widgets/topic_chip.dart';
 import '../../../../data/models/article.dart';
 import '../../../../services/providers.dart';
 
-class FeedCard extends ConsumerStatefulWidget {
-  final Article article;
-  const FeedCard({super.key, required this.article});
+/// Card system. Five variants, one visual language:
+///  A [StoryHero]     large image + headline, full width
+///  B [TypeCard]      typography-led, for stories without an image
+///  C [StoryRow]      compact horizontal row
+///  D [TrendingCard]  carousel "Trending #N" sticker card
+///  E [BreakingCard]  pink-outlined breaking story
+/// All share [SourceLine], [_Stats] and [_Save].
 
-  @override
-  ConsumerState<FeedCard> createState() => _FeedCardState();
+String sourceName(Article a) {
+  final n = a.source.name;
+  return n.length > 22 ? '${n.substring(0, 21)}…' : n;
 }
 
-class _FeedCardState extends ConsumerState<FeedCard> {
-  late bool _isSaved = widget.article.isSaved;
+/// First topic, used as the category badge.
+String? category(Article a) => a.topics.isEmpty ? null : a.topics.first;
 
-  Future<void> _toggleSave() async {
-    setState(() => _isSaved = !_isSaved);
-    await ref
-        .read(articleRepositoryProvider)
-        .toggleSave(widget.article.id);
-  }
+/// A story is "breaking" when it scored very high and is under six hours old.
+bool isBreaking(Article a) => a.trendScore >= 90 && DateTime.now().difference(a.publishedAt).inHours < 6;
 
-  Future<void> _share() async {
-    await Share.share(
-      '${widget.article.title}\n\n${widget.article.url}',
-      subject: widget.article.title,
-    );
-  }
-
-  void _openDetail() {
-    context.push(AppRoutes.articlePath(widget.article.id));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final a = widget.article;
-
-    return PressScale(
-      onTap: _openDetail,
-      haptic: false,
-      child: Container(
-        margin: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: theme.brightness == Brightness.dark
-              ? AppColors.darkSurface
-              : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-          border: Border.all(
-            color: theme.brightness == Brightness.dark
-                ? AppColors.darkBorder
-                : AppColors.lightBorder,
-          ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _HeroImage(article: a),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.lg,
-                AppSpacing.xl,
-                AppSpacing.lg,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SourceRow(article: a),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    a.title,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      height: 1.25,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (a.summary != null) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      a.summary!,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final t in a.topics.take(3))
-                        TopicChip(label: t, small: true),
-                      for (final c in a.companies.take(2))
-                        TopicChip(label: c, small: true),
-                    ],
-                  ),
-                  if (a.keyPoints.isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: AppColors.brandPrimary.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                        border: Border.all(
-                          color: AppColors.brandPrimary.withValues(alpha: 0.18),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.auto_awesome_rounded,
-                                  size: 14, color: AppColors.brandPrimary),
-                              const SizedBox(width: 6),
-                              Text(
-                                'AI KEY POINTS',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppColors.brandPrimary,
-                                  letterSpacing: 1.2,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          for (final point in a.keyPoints.take(3))
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 7),
-                                    width: 4,
-                                    height: 4,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.brandAccent,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      point,
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.brightness ==
-                                                Brightness.dark
-                                            ? AppColors.darkTextSecondary
-                                            : AppColors.lightTextSecondary,
-                                        height: 1.45,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  Row(
-                    children: [
-                      _ActionButton(
-                        icon: _isSaved
-                            ? Icons.bookmark_rounded
-                            : Icons.bookmark_outline_rounded,
-                        label: _isSaved ? 'Saved' : 'Save',
-                        active: _isSaved,
-                        onTap: _toggleSave,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      _ActionButton(
-                        icon: Icons.ios_share_rounded,
-                        label: 'Share',
-                        onTap: _share,
-                      ),
-                      const Spacer(),
-                      _TrendBadge(score: a.trendScore),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+IconData categoryIcon(String? c) {
+  switch ((c ?? '').toLowerCase()) {
+    case 'ai':
+    case 'artificial intelligence':
+      return AppIcons.sparkle;
+    case 'open source':
+      return AppIcons.code;
+    case 'startups':
+    case 'funding':
+      return AppIcons.startups;
+    case 'cybersecurity':
+    case 'security':
+      return AppIcons.security;
+    case 'hardware':
+      return AppIcons.hardware;
+    case 'space tech':
+    case 'space':
+      return AppIcons.space;
+    case 'web development':
+      return AppIcons.globe;
+    case 'mobile development':
+      return AppIcons.mobile;
+    case 'research':
+      return AppIcons.research;
+    default:
+      return AppIcons.news;
   }
 }
 
-class _HeroImage extends StatelessWidget {
+/// Source avatar, name, time.
+class SourceLine extends StatelessWidget {
   final Article article;
-  const _HeroImage({required this.article});
+  const SourceLine(this.article, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (article.imageUrl == null) {
-      return Container(
-        height: 140,
-        decoration: const BoxDecoration(gradient: AppColors.brandGradient),
-        child: const Center(
-          child: Icon(Icons.article_outlined, color: Colors.white, size: 36),
-        ),
-      );
-    }
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CachedNetworkImage(
-            imageUrl: article.imageUrl!,
-            fit: BoxFit.cover,
-            placeholder: (_, __) => Container(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppColors.darkSurfaceAlt
-                  : AppColors.lightSurfaceAlt,
-            ),
-            errorWidget: (_, __, ___) => Container(
-              decoration: const BoxDecoration(gradient: AppColors.brandGradient),
-              child: const Center(
-                child: Icon(Icons.broken_image_outlined,
-                    color: Colors.white, size: 32),
-              ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Color(0xCC000000)],
-                stops: [0.4, 1],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SourceRow extends StatelessWidget {
-  final Article article;
-  const _SourceRow({required this.article});
-
-  @override
-  Widget build(BuildContext context) {
+    final a = article;
     return Row(
       children: [
-        Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.brandPrimary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-          ),
-          child: Text(
-            article.source.name,
-            style: const TextStyle(
-              color: AppColors.brandPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
-            ),
-          ),
+        SourceAvatar(a.source.name, iconUrl: a.source.iconUrl, size: 20),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(sourceName(a), maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.sans(13, weight: FontWeight.w600, height: 1, color: AppColors.inkSecondary)),
         ),
-        const SizedBox(width: AppSpacing.sm),
-        Text(
-          Format.relativeTime(article.publishedAt),
-          style: Theme.of(context).textTheme.labelSmall,
-        ),
-        const Spacer(),
-        if (article.author != null)
-          Text(
-            article.author!,
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
+        const SizedBox(width: 8),
+        Text(FormatShort.short(a.publishedAt), style: AppTypography.mono(12.5, color: AppColors.inkMuted)),
       ],
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
+class _Stats extends StatelessWidget {
+  final Article a;
+  const _Stats(this.a);
+  @override
+  Widget build(BuildContext context) {
+    final hot = a.trendScore >= 80;
+    return Row(
+      children: [
+        Icon(hot ? AppIcons.flame : AppIcons.trending, size: 15, color: hot ? AppColors.ember : AppColors.inkMuted),
+        const SizedBox(width: 3),
+        Text('${a.trendScore}', style: AppTypography.mono(12.5, weight: FontWeight.w600, color: hot ? AppColors.ember : AppColors.inkMuted)),
+        if (a.coverage > 1) ...[
+          const SizedBox(width: 12),
+          const Icon(AppIcons.sources, size: 14, color: AppColors.inkMuted),
+          const SizedBox(width: 3),
+          Text('${a.coverage}', style: AppTypography.mono(12.5, color: AppColors.inkMuted)),
+        ],
+        if (a.discussions.isNotEmpty) ...[
+          const SizedBox(width: 12),
+          const Icon(AppIcons.comments, size: 14, color: AppColors.inkMuted),
+          const SizedBox(width: 3),
+          Text('${a.discussions.length}', style: AppTypography.mono(12.5, color: AppColors.inkMuted)),
+        ],
+      ],
+    );
+  }
+}
 
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    this.active = false,
-    required this.onTap,
-  });
+class _Save extends ConsumerWidget {
+  final Article a;
+  const _Save(this.a);
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(savedIdsProvider).contains(a.id);
+    return PopBookmark(
+      saved: saved,
+      onTap: () async {
+        final ok = await ref.read(savedIdsProvider.notifier).toggle(a.id);
+        if (!ok && context.mounted) context.push(AppRoutes.pro);
+      },
+    );
+  }
+}
+
+/// Blue disc with a doodle arrow. The "open" affordance on poster cards.
+class _Go extends StatelessWidget {
+  const _Go();
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+        child: const DoodleArrow(color: AppColors.onAccent, width: 16),
+      );
+}
+
+void _open(BuildContext context, Article a) => context.push(AppRoutes.articlePath(a.id));
+
+/// D. Carousel card: hue outline by rank, image with a "Trending #N"
+/// sticker, source, headline, stats, save, go.
+class TrendingCard extends StatelessWidget {
+  final Article article;
+  final int rank;
+  final double width;
+  const TrendingCard(this.article, {super.key, required this.rank, this.width = 300});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = active
-        ? AppColors.brandPrimary
-        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary);
-
-    return PressScale(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: active
-              ? AppColors.brandPrimary.withValues(alpha: 0.12)
-              : (isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-          border: Border.all(
-            color: active
-                ? AppColors.brandPrimary.withValues(alpha: 0.4)
-                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+    final a = article;
+    final t = Theme.of(context).textTheme;
+    final hue = [AppColors.yellow, AppColors.pink, AppColors.green, AppColors.purple, AppColors.cyan][(rank - 1) % 5];
+    return SizedBox(
+      width: width,
+      child: PressScale(
+        onTap: () => _open(context, a),
+        child: PopCard(
+          hue: hue,
+          glow: rank == 1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  InkImage(a.imageUrl, width: width, height: 168, radius: 0, label: a.source.name, category: category(a)),
+                  Positioned(left: 12, top: 12, child: Sticker('Trending #$rank', color: hue, icon: rank == 1 ? AppIcons.flame : null)),
+                ],
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SourceLine(a),
+                      const SizedBox(height: 8),
+                      Text(a.title, style: t.headlineSmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const Spacer(),
+                      Row(children: [Expanded(child: _Stats(a)), _Save(a), const SizedBox(width: 4), const _Go()]),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A. Full-width image card. Category sticker on the image.
+class StoryHero extends StatelessWidget {
+  final Article article;
+  const StoryHero(this.article, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = article;
+    final t = Theme.of(context).textTheme;
+    final cat = category(a);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+      child: PressScale(
+        onTap: () => _open(context, a),
+        child: PopCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  AspectRatio(aspectRatio: 16 / 9, child: InkImage(a.imageUrl, width: double.infinity, radius: 0, label: a.source.name, category: category(a))),
+                  if (cat != null) Positioned(left: 12, top: 12, child: Sticker(cat, color: AppColors.hue(cat))),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SourceLine(a),
+                    const SizedBox(height: 8),
+                    Text(a.title, style: t.headlineMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
+                    if (a.summary != null && a.summary!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(a.summary!, style: t.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ],
+                    const SizedBox(height: 6),
+                    Row(children: [Expanded(child: _Stats(a)), _Save(a), const SizedBox(width: 4), const _Go()]),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// B. Typography-led card for stories without an image: big headline on a
+/// hue-tinted surface with an oversized category glyph and a spark.
+class TypeCard extends StatelessWidget {
+  final Article article;
+  const TypeCard(this.article, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = article;
+    final t = Theme.of(context).textTheme;
+    final cat = category(a);
+    final hue = AppColors.hue(cat ?? a.source.name);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+      child: PressScale(
+        onTap: () => _open(context, a),
+        child: PopCard(
+          hue: hue,
+          fill: Color.alphaBlend(hue.withValues(alpha: 0.08), AppColors.surface),
+          child: Stack(
+            children: [
+              Positioned(right: -18, bottom: -22, child: Icon(categoryIcon(cat), size: 140, color: hue.withValues(alpha: 0.12))),
+              Positioned(right: 14, top: 12, child: Spark(size: 16, color: hue)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (cat != null) Sticker(cat, color: hue, tilt: 0),
+                    const SizedBox(height: 12),
+                    Text(a.title, style: t.headlineLarge, maxLines: 4, overflow: TextOverflow.ellipsis),
+                    if (a.summary != null && a.summary!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(a.summary!, style: t.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ],
+                    const SizedBox(height: 12),
+                    SourceLine(a),
+                    const SizedBox(height: 4),
+                    Row(children: [Expanded(child: _Stats(a)), _Save(a), const SizedBox(width: 4), const _Go()]),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// C. Compact row: source, headline, stats left; thumbnail right.
+class StoryRow extends StatelessWidget {
+  final Article article;
+  final bool showThumb;
+  const StoryRow(this.article, {super.key, this.showThumb = true});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = article;
+    final t = Theme.of(context).textTheme;
+    final read = a.isRead;
+    final cat = category(a);
+    return InkWell(
+      onTap: () => _open(context, a),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter, vertical: AppSpacing.md),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (cat != null) ...[HueTag(cat, dense: true), const SizedBox(width: 8)],
+                      Flexible(child: SourceLine(a)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    a.title,
+                    style: t.headlineSmall?.copyWith(color: read ? AppColors.inkSecondary : AppColors.ink),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(children: [Expanded(child: _Stats(a)), _Save(a)]),
+                ],
               ),
             ),
+            if (showThumb) ...[
+              const SizedBox(width: AppSpacing.md),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: InkImage(a.imageUrl, width: 96, height: 96, radius: AppSpacing.radiusMd, label: a.source.name, category: category(a)),
+              ),
+            ],
           ],
         ),
       ),
@@ -357,42 +350,41 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-class _TrendBadge extends StatelessWidget {
-  final int score;
-  const _TrendBadge({required this.score});
+/// E. Breaking story: pink outline and glow, "Breaking" sticker, headline
+/// first. Shown above the carousel when a very high score is under 6h old.
+class BreakingCard extends StatelessWidget {
+  final Article article;
+  const BreakingCard(this.article, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    final hot = score >= 85;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: (hot ? AppColors.warning : AppColors.info)
-            .withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        border: Border.all(
-          color: (hot ? AppColors.warning : AppColors.info)
-              .withValues(alpha: 0.35),
+    final a = article;
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, 0),
+      child: PressScale(
+        onTap: () => _open(context, a),
+        child: PopCard(
+          hue: AppColors.pink,
+          glow: true,
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Sticker('Breaking', color: AppColors.pink, icon: AppIcons.bolt, tilt: 0),
+                  const SizedBox(width: 10),
+                  Expanded(child: SourceLine(a)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(a.title, style: t.headlineMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 6),
+              Row(children: [Expanded(child: _Stats(a)), _Save(a), const SizedBox(width: 4), const _Go()]),
+            ],
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            hot ? Icons.local_fire_department_rounded : Icons.trending_up_rounded,
-            color: hot ? AppColors.warning : AppColors.info,
-            size: 14,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '$score',
-            style: TextStyle(
-              color: hot ? AppColors.warning : AppColors.info,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

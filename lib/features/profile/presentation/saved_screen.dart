@@ -1,92 +1,70 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/theme/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/utils/format.dart';
-import '../../../core/widgets/press_scale.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/doodle_figure.dart';
+import '../../../core/widgets/ink_widgets.dart';
+import '../../../core/widgets/loading_shimmer.dart';
 import '../../../services/providers.dart';
+import '../../feed/presentation/widgets/feed_card.dart';
 
 class SavedScreen extends ConsumerWidget {
   const SavedScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(savedIdsProvider); // rebuild when a save toggles
     final saved = ref.watch(savedArticlesProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Saved')),
       body: saved.when(
-        loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.brandPrimary)),
-        error: (e, _) => Center(child: Text('$e')),
-        data: (list) {
-          if (list.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.bookmark_border_rounded,
-                        size: 48, color: AppColors.darkTextMuted),
-                    const SizedBox(height: AppSpacing.md),
-                    Text('Nothing saved yet',
-                        style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Tap the bookmark on any story to save it for later.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
+        loading: () => const Column(children: [_Header(count: 0), StoryRowSkeleton(), StoryRowSkeleton()]),
+        error: (_, _) => const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_Header(count: 0), EmptyState(title: 'Could not load saved stories', body: 'Try again in a moment.')]),
+        data: (items) => items.isEmpty
+            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const _Header(count: 0), EmptyState(
+                icon: AppIcons.bookmark,
+                hue: AppColors.pink,
+                figure: Figure.sittingReading,
+                title: 'No stories saved yet.',
+                body: 'Tap the bookmark on any story. Saved stories stay available offline.',
+                actionLabel: 'Back to the feed',
+                onAction: () => context.go(AppRoutes.feed),
+              )])
+            : ListView.separated(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                itemCount: items.length + 1,
+                separatorBuilder: (_, i) => i == 0 ? const SizedBox.shrink() : const GutterDivider(),
+                itemBuilder: (_, i) => i == 0 ? _Header(count: items.length) : StoryRow(items[i - 1]),
               ),
-            );
-          }
-          return ListView.separated(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-            itemBuilder: (_, i) {
-              final a = list[i];
-              return PressScale(
-                onTap: () => context.push(AppRoutes.articlePath(a.id)),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.darkSurface
-                        : AppColors.lightSurface,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                    border: Border.all(
-                      color: isDark
-                          ? AppColors.darkBorder
-                          : AppColors.lightBorder,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(a.title,
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${a.source.name} · ${Format.relativeTime(a.publishedAt)}',
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  final int count;
+  const _Header({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Saved', style: t.headlineLarge),
+            const SizedBox(height: 3),
+            Text(count == 1 ? '1 story, available offline' : '$count stories, available offline', style: AppTypography.kicker()),
+          ],
+        ),
       ),
     );
   }

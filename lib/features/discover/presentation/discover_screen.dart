@@ -1,15 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/theme/app_icons.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../app/router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/widgets/doodles.dart';
+import '../../../core/widgets/ink_widgets.dart';
 import '../../../core/widgets/loading_shimmer.dart';
 import '../../../core/widgets/press_scale.dart';
-import '../../../data/models/github_repo.dart';
-import '../../../data/models/trending_topic.dart';
 import '../../../services/providers.dart';
+import '../../article/presentation/widgets/repo_card.dart';
+
+/// Fixed magazine sections. Counts come from the live topic index when a
+/// matching topic exists; the search query is what the card opens.
+class _Section {
+  final String name;
+  final String blurb;
+  final IconData icon;
+  final Color hue;
+  final String query;
+  const _Section(this.name, this.blurb, this.icon, this.hue, this.query);
+}
+
+const _sections = [
+  _Section('Trending', 'What moved this hour', AppIcons.flame, AppColors.orange, 'trending'),
+  _Section('AI', 'Models, agents, labs', AppIcons.ai, AppColors.accent, 'AI'),
+  _Section('Startups', 'Launches and funding', AppIcons.startups, AppColors.pink, 'startups'),
+  _Section('Open Source', 'Repos crossing the line', AppIcons.code, AppColors.green, 'open source'),
+  _Section('Cybersecurity', 'Breaches and patches', AppIcons.security, AppColors.yellow, 'security'),
+  _Section('Space', 'Launches and orbit', AppIcons.space, AppColors.purple, 'space'),
+  _Section('Hardware', 'Chips and devices', AppIcons.hardware, AppColors.cyan, 'hardware'),
+  _Section('Developer Tools', 'Editors, CLIs, infra', AppIcons.devtools, AppColors.green, 'developer tools'),
+  _Section('Research', 'arXiv and papers', AppIcons.research, AppColors.purple, 'research'),
+];
 
 class DiscoverScreen extends ConsumerWidget {
   const DiscoverScreen({super.key});
@@ -19,425 +47,183 @@ class DiscoverScreen extends ConsumerWidget {
     final topics = ref.watch(trendingTopicsProvider);
     final repos = ref.watch(trendingReposProvider);
     final funding = ref.watch(fundingEventsProvider);
+    final t = Theme.of(context).textTheme;
+    final counts = <String, int>{};
+    for (final x in topics.valueOrNull ?? const []) {
+      counts[x.name.toLowerCase()] = x.articleCount;
+    }
 
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          color: AppColors.brandPrimary,
-          onRefresh: () async {
-            ref.invalidate(trendingTopicsProvider);
-            ref.invalidate(trendingReposProvider);
-            ref.invalidate(fundingEventsProvider);
-          },
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics()),
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            children: [
-              const _Header(),
-              const SizedBox(height: AppSpacing.lg),
-              _SectionHeader(
-                title: 'Trending Topics',
-                subtitle: 'What the ecosystem is talking about',
-              ),
-              const SizedBox(height: AppSpacing.md),
-              topics.when(
-                loading: () => const _TopicsShimmer(),
-                error: (e, _) => const _ErrorRow(),
-                data: (list) => SizedBox(
-                  height: 140,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.lg),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(width: AppSpacing.md),
-                    itemBuilder: (_, i) => _TopicCard(topic: list[i]),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxl),
-              _SectionHeader(
-                title: 'Trending Repositories',
-                subtitle: 'Stars per week',
-              ),
-              const SizedBox(height: AppSpacing.md),
-              repos.when(
-                loading: () => const _RepoListShimmer(),
-                error: (e, _) => const _ErrorRow(),
-                data: (list) => Column(
-                  children: list
-                      .map((r) => Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
-                            child: _TrendingRepoTile(repo: r),
-                          ))
-                      .toList(),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              _SectionHeader(
-                title: 'Funding & Acquisitions',
-                subtitle: 'Where the money is flowing',
-              ),
-              const SizedBox(height: AppSpacing.md),
-              funding.when(
-                loading: () => const _RepoListShimmer(),
-                error: (e, _) => const _ErrorRow(),
-                data: (list) => Column(
-                  children: list
-                      .map((f) => Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
-                            child: _FundingTile(event: f),
-                          ))
-                      .toList(),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxxl),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header();
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Discover',
-              style: Theme.of(context).textTheme.displaySmall),
-          const SizedBox(height: 2),
-          Text(
-            'Trends, repos, and money — at a glance.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  const _SectionHeader({required this.title, required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 2),
-          Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicCard extends StatelessWidget {
-  final TrendingTopic topic;
-  const _TopicCard({required this.topic});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = AppColors.topicColor(topic.name);
-    return PressScale(
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      onTap: () {},
-      child: Container(
-        width: 200,
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(
-            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.trending_up_rounded, size: 11, color: color),
-                  const SizedBox(width: 3),
-                  Text(
-                    '+${topic.growthPercent.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                        color: color, fontSize: 10, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-            Text(topic.name,
-                style: Theme.of(context).textTheme.titleLarge,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Text(topic.description,
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis),
-            const SizedBox(height: AppSpacing.sm),
-            Text('${topic.articleCount} articles',
-                style: Theme.of(context).textTheme.labelSmall),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TrendingRepoTile extends StatelessWidget {
-  final GithubRepo repo;
-  const _TrendingRepoTile({required this.repo});
-
-  Future<void> _open() async {
-    final uri = Uri.parse(repo.url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return PressScale(
-      onTap: _open,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(
-            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.brandAccent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              ),
-              child: const Icon(Icons.code_rounded,
-                  color: AppColors.brandAccent),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(repo.fullName,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 2),
-                  Text(repo.description,
-                      style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                  ),
-                  child: Text(
-                    '+${Format.compactNumber(repo.starsThisWeek)}',
-                    style: const TextStyle(
-                      color: AppColors.warning,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+      body: RefreshIndicator(
+        color: AppColors.accent,
+        backgroundColor: AppColors.surfaceRaised,
+        onRefresh: () async {
+          ref.invalidate(trendingTopicsProvider);
+          ref.invalidate(trendingReposProvider);
+          ref.invalidate(fundingEventsProvider);
+        },
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final columns = box.maxWidth > 600 ? 3 : 2;
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text('Discover', style: t.headlineLarge),
+                              const SizedBox(width: 8),
+                              const Padding(padding: EdgeInsets.only(bottom: 10), child: Spark(size: 14, color: AppColors.pink, turn: 0.3)),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text('Explore the magazine by section', style: AppTypography.kicker()),
+                          const SizedBox(height: AppSpacing.lg),
+                          SearchBarButton(onTap: () => context.push(AppRoutes.search), hint: 'Search stories, repos, companies'),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.xl, AppSpacing.gutter, 0),
+                  sliver: SliverGrid.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: AppSpacing.md,
+                      crossAxisSpacing: AppSpacing.md,
+                      childAspectRatio: 1.45,
+                    ),
+                    itemCount: _sections.length,
+                    itemBuilder: (_, i) {
+                      final s = _sections[i];
+                      final n = counts[s.name.toLowerCase()] ?? counts[s.query.toLowerCase()];
+                      return _SectionCard(
+                        section: s,
+                        count: n,
+                        onTap: () => context.push('${AppRoutes.search}?q=${Uri.encodeComponent(s.query)}'),
+                      );
+                    },
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SectionHeader('Repos worth watching', icon: AppIcons.github, iconColor: AppColors.ink, underline: AppColors.green, kicker: 'From this fortnight\'s stories')),
+                repos.when(
+                  loading: () => const SliverToBoxAdapter(child: StoryRowSkeleton()),
+                  error: (_, _) => const SliverToBoxAdapter(child: _Unavailable()),
+                  data: (items) => items.isEmpty
+                      ? const SliverToBoxAdapter(child: _Unavailable(text: 'No repos in the current window.'))
+                      : SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                          sliver: SliverList.list(children: [
+                            for (final r in items.take(6)) Padding(padding: const EdgeInsets.only(bottom: AppSpacing.sm), child: RepoCard(r)),
+                          ]),
+                        ),
+                ),
+                const SliverToBoxAdapter(child: SectionHeader('Funding', icon: AppIcons.finance, iconColor: AppColors.yellow, underline: AppColors.yellow, kicker: 'Rounds mentioned in the last 10 days')),
+                funding.when(
+                  loading: () => const SliverToBoxAdapter(child: StoryRowSkeleton()),
+                  error: (_, _) => const SliverToBoxAdapter(child: _Unavailable()),
+                  data: (items) => items.isEmpty
+                      ? const SliverToBoxAdapter(child: _Unavailable(text: 'No funding rounds spotted yet.'))
+                      : SliverList.list(children: [
+                          for (final f in items) ...[
+                            InkWell(
+                              onTap: () => context.push(AppRoutes.articlePath(f.id)),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter, vertical: AppSpacing.md),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(f.companyName, style: t.titleLarge),
+                                          const SizedBox(height: 2),
+                                          Text(f.description ?? '', style: t.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(f.amountUsd > 0 ? Format.money(f.amountUsd) : 'undisclosed', style: AppTypography.serif(16, weight: FontWeight.w700, color: AppColors.yellow)),
+                                        Text(f.round, style: AppTypography.kicker()),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const GutterDivider(),
+                          ],
+                        ]),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _Unavailable extends StatelessWidget {
+  final String text;
+  const _Unavailable({this.text = 'Could not load this section.'});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.md),
+        child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+      );
+}
+
+/// Magazine section card: hue outline, big faded glyph, name, blurb, count.
+class _SectionCard extends StatelessWidget {
+  final _Section section;
+  final int? count;
+  final VoidCallback onTap;
+  const _SectionCard({required this.section, required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = section;
+    return PressScale(
+      onTap: onTap,
+      child: PopCard(
+        hue: s.hue.withValues(alpha: 0.6),
+        fill: Color.alphaBlend(s.hue.withValues(alpha: 0.07), AppColors.surface),
+        padding: const EdgeInsets.all(14),
+        child: Stack(
+          children: [
+            Positioned(right: -12, bottom: -16, child: Icon(s.icon, size: 76, color: s.hue.withValues(alpha: 0.12))),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   children: [
-                    const Icon(Icons.star_rounded,
-                        size: 12, color: AppColors.brandHighlight),
-                    const SizedBox(width: 2),
-                    Text(Format.compactNumber(repo.stars),
-                        style: Theme.of(context).textTheme.labelSmall),
+                    Icon(s.icon, size: 22, color: s.hue),
+                    const Spacer(),
+                    if (count != null) HueTag('$count', hue: s.hue, dense: true),
                   ],
                 ),
+                const Spacer(),
+                Text(s.name, style: AppTypography.serif(16, weight: FontWeight.w700, height: 1.15)),
+                const SizedBox(height: 2),
+                Text(s.blurb, style: AppTypography.sans(12, color: AppColors.inkMuted, height: 1.3), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _FundingTile extends StatelessWidget {
-  final FundingEvent event;
-  const _FundingTile({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: const Icon(Icons.trending_up_rounded,
-                    color: AppColors.success),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(event.companyName,
-                        style: Theme.of(context).textTheme.titleMedium),
-                    Text(
-                        '${event.round} · ${Format.relativeTime(event.announcedAt)}',
-                        style: Theme.of(context).textTheme.labelSmall),
-                  ],
-                ),
-              ),
-              Text(
-                Format.money(event.amountUsd),
-                style: TextStyle(
-                  color: AppColors.success,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          if (event.description != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(event.description!,
-                style: Theme.of(context).textTheme.bodySmall),
-          ],
-          if (event.investors.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: event.investors
-                  .map((inv) => Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.darkSurfaceAlt
-                              : AppColors.lightSurfaceAlt,
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusPill),
-                        ),
-                        child: Text(
-                          inv,
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicsShimmer extends StatelessWidget {
-  const _TopicsShimmer();
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 140,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        itemCount: 3,
-        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
-        itemBuilder: (_, __) =>
-            const LoadingShimmer(width: 200, height: 140, radius: AppSpacing.radiusLg),
-      ),
-    );
-  }
-}
-
-class _RepoListShimmer extends StatelessWidget {
-  const _RepoListShimmer();
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(
-        3,
-        (_) => const Padding(
-          padding: EdgeInsets.fromLTRB(
-              AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
-          child:
-              LoadingShimmer(height: 84, radius: AppSpacing.radiusLg),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorRow extends StatelessWidget {
-  const _ErrorRow();
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Text('Couldn\'t load. Pull to refresh.',
-          style: Theme.of(context).textTheme.bodyMedium),
     );
   }
 }

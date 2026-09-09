@@ -37,6 +37,7 @@ class Interests {
     'Mobile Development',
     'Space Tech',
     'Robotics',
+    'Hardware',
     'Finance Tech',
     'Blockchain',
     'Apple',

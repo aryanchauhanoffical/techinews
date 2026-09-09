@@ -1,121 +1,96 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/theme/app_icons.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/format.dart';
-import '../../../../core/widgets/press_scale.dart';
+import '../../../../core/widgets/doodles.dart';
+import '../../../../data/models/article.dart';
 import '../../../../data/models/github_repo.dart';
 
+/// Repo card the way a developer scans it: owner/name, description, language
+/// dot, stars, forks, and a "Trending" sticker when stars are moving. Tapping
+/// opens the story when one is attached, otherwise the repo itself.
 class RepoCard extends StatelessWidget {
   final GithubRepo repo;
-  const RepoCard({super.key, required this.repo});
-
-  Future<void> _open() async {
-    final uri = Uri.parse(repo.url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
+  final Article? story;
+  const RepoCard(this.repo, {super.key, this.story});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return PressScale(
-      onTap: _open,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(
-            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.code_rounded,
-                    size: 16, color: AppColors.brandAccent),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    repo.fullName,
-                    style: theme.textTheme.titleMedium,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (repo.starsThisWeek > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.trending_up,
-                            size: 12, color: AppColors.warning),
-                        const SizedBox(width: 3),
-                        Text(
-                          '+${Format.compactNumber(repo.starsThisWeek)}',
-                          style: const TextStyle(
-                              color: AppColors.warning,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700),
-                        ),
-                      ],
+    final t = Theme.of(context).textTheme;
+    final parts = repo.fullName.split('/');
+    final trending = repo.starsThisWeek > 0;
+    return PopCard(
+      hue: AppColors.hairlineStrong,
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 12),
+      onTap: () => story != null ? context.push(AppRoutes.articlePath(story!.id)) : launchUrl(Uri.parse(repo.url), mode: LaunchMode.externalApplication),
+      child: Stack(
+        children: [
+          Positioned(right: -6, top: -6, child: Icon(AppIcons.code, size: 64, color: AppColors.green.withValues(alpha: 0.10))),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(AppIcons.code, size: 16, color: AppColors.green),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: RichText(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
+                        style: AppTypography.serif(15, weight: FontWeight.w700, height: 1.1, color: AppColors.ink),
+                        children: [
+                          if (parts.length > 1) TextSpan(text: '${parts.first} / ', style: AppTypography.sans(13.5, weight: FontWeight.w500, color: AppColors.inkMuted)),
+                          TextSpan(text: parts.last),
+                        ],
+                      ),
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              repo.description,
-              style: theme.textTheme.bodySmall,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                if (repo.language != null) ...[
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.brandAccent,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  IconButton(
+                    tooltip: 'Open on GitHub',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => launchUrl(Uri.parse(repo.url), mode: LaunchMode.externalApplication),
+                    icon: const Icon(AppIcons.external, size: 16, color: AppColors.inkMuted),
                   ),
-                  const SizedBox(width: 4),
-                  Text(repo.language!,
-                      style: theme.textTheme.labelSmall),
-                  const SizedBox(width: AppSpacing.md),
                 ],
-                const Icon(Icons.star_rounded,
-                    size: 14, color: AppColors.brandHighlight),
-                const SizedBox(width: 3),
-                Text(Format.compactNumber(repo.stars),
-                    style: theme.textTheme.labelSmall),
-                const SizedBox(width: AppSpacing.md),
-                Icon(Icons.call_split_rounded,
-                    size: 13,
-                    color: theme.textTheme.labelSmall?.color),
-                const SizedBox(width: 3),
-                Text(Format.compactNumber(repo.forks),
-                    style: theme.textTheme.labelSmall),
+              ),
+              if (repo.description.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(repo.description, style: t.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
               ],
-            ),
-          ],
-        ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  const Icon(AppIcons.star, size: 15, color: AppColors.yellow),
+                  const SizedBox(width: 4),
+                  Text(Format.compactNumber(repo.stars), style: AppTypography.mono(12.5, weight: FontWeight.w600, color: AppColors.ink)),
+                  const SizedBox(width: 14),
+                  const Icon(AppIcons.fork, size: 15, color: AppColors.inkMuted),
+                  const SizedBox(width: 4),
+                  Text(Format.compactNumber(repo.forks), style: AppTypography.mono(12.5, color: AppColors.inkSecondary)),
+                  if (repo.language != null) ...[
+                    const SizedBox(width: 14),
+                    Container(width: 9, height: 9, decoration: BoxDecoration(color: AppColors.language(repo.language), shape: BoxShape.circle)),
+                    const SizedBox(width: 5),
+                    Text(repo.language!, style: AppTypography.mono(12.5, color: AppColors.inkSecondary)),
+                  ],
+                  const Spacer(),
+                  if (trending)
+                    HueTag('Trending  +${Format.compactNumber(repo.starsThisWeek)}', hue: AppColors.green, dense: true)
+                  else if (repo.lastCommit != null)
+                    Text('Pushed ${FormatShort.short(repo.lastCommit!)} ago', style: AppTypography.kicker()),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

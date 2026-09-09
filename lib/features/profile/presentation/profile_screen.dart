@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/theme/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/widgets/press_scale.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/ink_widgets.dart';
+import '../../../core/widgets/topic_chip.dart';
+import '../../../data/models/user.dart';
+import '../../../services/pro.dart';
 import '../../../services/providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -14,334 +21,162 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final saved = ref.watch(savedIdsProvider);
+    final t = Theme.of(context).textTheme;
+    final isGuest = user == null || user.id == 'guest';
+    final pro = ref.watch(proProvider);
+    final interests = user?.interests ?? const <String>[];
 
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Text('Profile',
-                  style: Theme.of(context).textTheme.displaySmall),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.darkSurface
-                      : AppColors.lightSurface,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                  border: Border.all(
-                    color: isDark
-                        ? AppColors.darkBorder
-                        : AppColors.lightBorder,
-                  ),
-                ),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.sm),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.brandGradient,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          (user?.displayName.substring(0, 1) ?? 'G').toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 22,
-                          ),
-                        ),
-                      ),
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: AppColors.surfaceRaised, borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+                      child: user?.photoUrl != null
+                          ? ClipRRect(borderRadius: BorderRadius.circular(AppSpacing.radiusMd), child: Image.network(user!.photoUrl!, fit: BoxFit.cover, width: 48, height: 48))
+                          : Text((user?.displayName.isNotEmpty ?? false) ? user!.displayName[0].toUpperCase() : 'G', style: t.headlineSmall),
                     ),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user?.displayName ?? 'Guest user',
-                              style: Theme.of(context).textTheme.titleLarge),
-                          Text(user?.email ?? 'Sign in to sync your feed',
-                              style: Theme.of(context).textTheme.bodySmall),
+                          Text(isGuest ? 'Reading as guest' : user.displayName, style: t.headlineSmall),
+                          const SizedBox(height: 2),
+                          Text(isGuest ? 'Saved stories stay on this device' : user.email, style: t.bodySmall),
                         ],
                       ),
                     ),
-                    if (user?.isPremium == true)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.brandHighlight.withValues(alpha: 0.18),
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusPill),
-                        ),
-                        child: Text(
-                          'PRO',
-                          style: TextStyle(
-                              color: AppColors.brandHighlight,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2),
-                        ),
-                      ),
+                    IconButton(onPressed: () => context.push(AppRoutes.settings), icon: const Icon(AppIcons.filter)),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      label: 'Interests',
-                      value: '${user?.interests.length ?? 0}',
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: _StatCard(
-                      label: 'Saved',
-                      value: '0',
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: _StatCard(
-                      label: 'Streak',
-                      value: '0d',
-                    ),
-                  ),
-                ],
+          ),
+          if (isGuest)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, 0),
+                child: OutlinedButton(onPressed: () => context.push(AppRoutes.signIn), child: const Text('Sign in to sync across devices')),
               ),
             ),
-            const SizedBox(height: AppSpacing.xl),
-            _ListSection(
-              title: 'YOUR CONTENT',
-              items: [
-                _MenuItem(
-                  icon: Icons.bookmark_outline_rounded,
-                  label: 'Saved articles',
-                  onTap: () => context.push(AppRoutes.saved),
-                ),
-                _MenuItem(
-                  icon: Icons.history_rounded,
-                  label: 'Reading history',
-                  onTap: () {},
-                ),
-              ],
+          SliverToBoxAdapter(
+            child: SectionHeader('Following', kicker: '${interests.length} topics lead your feed', action: 'Edit', onAction: () => _editInterests(context, ref, interests)),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+              child: interests.isEmpty
+                  ? Text('Nothing yet. Tap Edit to pick what leads your feed.', style: t.bodyMedium)
+                  : Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [for (final i in interests) TopicChip(label: i, selected: true, dense: true)]),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            _ListSection(
-              title: 'PREFERENCES',
-              items: [
-                _MenuItem(
-                  icon: Icons.tune_rounded,
-                  label: 'Edit interests',
-                  onTap: () {},
-                ),
-                _MenuItem(
-                  icon: Icons.notifications_outlined,
-                  label: 'Notifications',
-                  onTap: () => context.push(AppRoutes.settings),
-                ),
-                _MenuItem(
-                  icon: Icons.dark_mode_outlined,
-                  label: 'Appearance',
-                  onTap: () => context.push(AppRoutes.settings),
-                ),
-              ],
+          ),
+          const SliverToBoxAdapter(child: SectionHeader('Library')),
+          SliverList.list(children: [
+            _Row(icon: AppIcons.bolt, title: pro.isPro ? 'TechiNews Pro' : 'Upgrade to Pro', trailing: pro.isPro ? 'Active' : 'Alerts', onTap: () => context.push(AppRoutes.pro)),
+            const GutterDivider(),
+            _Row(icon: AppIcons.bookmark, title: 'Saved stories', trailing: pro.isPro ? '${saved.length}' : '${saved.length} / ${ProNotifier.freeSaveLimit}', onTap: () => context.go(AppRoutes.saved)),
+            const GutterDivider(),
+            _Row(icon: AppIcons.bell, title: 'Notifications', trailing: _modeLabel(user?.notificationMode ?? NotificationMode.dailyDigest), onTap: () => context.push(AppRoutes.settings)),
+            const GutterDivider(),
+            _Row(icon: AppIcons.info, title: 'About', trailing: 'v${AppConstants.appVersion}', onTap: () => context.push(AppRoutes.settings)),
+            const GutterDivider(),
+          ]),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.xl, AppSpacing.gutter, AppSpacing.xxl),
+              child: TextButton(
+                onPressed: () async {
+                  await ref.read(currentUserProvider.notifier).signOut();
+                  if (context.mounted) context.go(AppRoutes.onboarding);
+                },
+                style: TextButton.styleFrom(foregroundColor: AppColors.inkMuted, alignment: Alignment.centerLeft),
+                child: Text(isGuest ? 'Reset this device' : 'Sign out'),
+              ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            _ListSection(
-              title: 'ACCOUNT',
-              items: [
-                _MenuItem(
-                  icon: Icons.workspace_premium_outlined,
-                  label: 'Upgrade to Pro',
-                  onTap: () {},
-                  trailing: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.brandGradient,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusPill),
-                    ),
-                    child: const Text(
-                      'New',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-                _MenuItem(
-                  icon: Icons.settings_outlined,
-                  label: 'Settings',
-                  onTap: () => context.push(AppRoutes.settings),
-                ),
-                _MenuItem(
-                  icon: Icons.logout_rounded,
-                  label: user == null ? 'Sign in' : 'Sign out',
-                  destructive: user != null,
-                  onTap: () async {
-                    if (user == null) {
-                      context.go(AppRoutes.signIn);
-                    } else {
-                      await ref.read(currentUserProvider.notifier).signOut();
-                      if (context.mounted) context.go(AppRoutes.signIn);
-                    }
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xxxl),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  const _StatCard({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(value, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 2),
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
+          ),
         ],
       ),
     );
   }
-}
 
-class _ListSection extends StatelessWidget {
-  final String title;
-  final List<_MenuItem> items;
-  const _ListSection({required this.title, required this.items});
+  static String _modeLabel(NotificationMode m) => switch (m) {
+        NotificationMode.instant => 'Instant',
+        NotificationMode.dailyDigest => 'Daily',
+        NotificationMode.weeklyDigest => 'Weekly',
+        NotificationMode.silent => 'Off',
+      };
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
-          child: Text(
-            title,
-            style: TextStyle(
-              color: isDark
-                  ? AppColors.darkTextMuted
-                  : AppColors.lightTextMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(
-              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-            ),
-          ),
-          child: Column(
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                items[i],
-                if (i < items.length - 1)
-                  Divider(
-                    height: 1,
-                    indent: 52,
-                    color: isDark
-                        ? AppColors.darkBorder
-                        : AppColors.lightBorder,
-                  ),
+  Future<void> _editInterests(BuildContext context, WidgetRef ref, List<String> current) async {
+    final picked = {...current};
+    final result = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('What leads your feed', style: Theme.of(ctx).textTheme.headlineMedium),
+                const SizedBox(height: AppSpacing.lg),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final i in Interests.all)
+                      TopicChip(label: i, selected: picked.contains(i), onTap: () => setSheet(() => picked.contains(i) ? picked.remove(i) : picked.add(i))),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                FilledButton(onPressed: () => Navigator.pop(ctx, picked), child: Text('Save ${picked.length} topics')),
               ],
-            ],
+            ),
           ),
         ),
-      ],
+      ),
     );
+    if (result != null) {
+      await ref.read(currentUserProvider.notifier).setInterests(result.toList());
+      ref.invalidate(feedStateProvider);
+    }
   }
 }
 
-class _MenuItem extends StatelessWidget {
+class _Row extends StatelessWidget {
   final IconData icon;
-  final String label;
+  final String title;
+  final String? trailing;
   final VoidCallback onTap;
-  final Widget? trailing;
-  final bool destructive;
-
-  const _MenuItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.trailing,
-    this.destructive = false,
-  });
+  const _Row({required this.icon, required this.title, this.trailing, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive
-        ? AppColors.danger
-        : Theme.of(context).textTheme.bodyLarge?.color;
-    return PressScale(
+    return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter, vertical: AppSpacing.lg),
         child: Row(
           children: [
-            Icon(icon, color: color, size: 20),
+            Icon(icon, size: 20, color: AppColors.inkSecondary),
             const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                    color: color, fontSize: 15, fontWeight: FontWeight.w500),
-              ),
-            ),
-            if (trailing != null) trailing!,
-            const SizedBox(width: AppSpacing.sm),
-            Icon(Icons.chevron_right_rounded,
-                color: Theme.of(context).textTheme.labelSmall?.color,
-                size: 20),
+            Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+            if (trailing != null) Text(trailing!, style: AppTypography.kicker()),
+            const SizedBox(width: 6),
+            const Icon(AppIcons.chevronRight, size: 18, color: AppColors.inkFaint),
           ],
         ),
       ),

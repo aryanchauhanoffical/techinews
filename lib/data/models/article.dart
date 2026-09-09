@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 import 'github_repo.dart';
 import 'social_post.dart';
 
-enum ArticleSourceType { news, blog, hackerNews, reddit, productHunt, github }
+enum ArticleSourceType { news, blog, hackerNews, reddit, productHunt, github, youtube, bluesky }
 
 class ArticleSource extends Equatable {
   final String id;
@@ -43,6 +43,8 @@ class Article extends Equatable {
   final List<SocialPost> discussions;
   final bool isSaved;
   final bool isRead;
+  final int coverage;
+  final List<String> relatedIds;
 
   const Article({
     required this.id,
@@ -65,6 +67,8 @@ class Article extends Equatable {
     this.discussions = const [],
     this.isSaved = false,
     this.isRead = false,
+    this.coverage = 1,
+    this.relatedIds = const [],
   });
 
   Article copyWith({
@@ -97,6 +101,8 @@ class Article extends Equatable {
       discussions: discussions ?? this.discussions,
       isSaved: isSaved ?? this.isSaved,
       isRead: isRead ?? this.isRead,
+      coverage: coverage,
+      relatedIds: relatedIds,
     );
   }
 

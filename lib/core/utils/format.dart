@@ -32,3 +32,23 @@ class Format {
     return DateFormat('MMM d, y').format(dt);
   }
 }
+
+/// Compact mono-friendly forms used in kickers: 12M, 3H, 2D, 5W.
+extension FormatShort on Format {
+  static String short(DateTime dt) {
+    final d = DateTime.now().difference(dt);
+    if (d.inMinutes < 1) return 'now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m';
+    if (d.inHours < 24) return '${d.inHours}h';
+    if (d.inDays < 7) return '${d.inDays}d';
+    if (d.inDays < 60) return '${(d.inDays / 7).floor()}w';
+    return '${(d.inDays / 30).floor()}mo';
+  }
+
+  static String until(DateTime dt) {
+    final d = dt.difference(DateTime.now());
+    if (d.isNegative || d.inMinutes < 1) return 'any minute';
+    if (d.inMinutes < 60) return '${d.inMinutes} min';
+    return '${d.inHours} h ${d.inMinutes % 60} min';
+  }
+}
