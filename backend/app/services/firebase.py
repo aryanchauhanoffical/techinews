@@ -23,15 +23,20 @@ def init() -> bool:
         return _app is not None
     _initialized = True
 
-    path = get_settings().FIREBASE_CREDENTIALS_PATH
-    if not path:
-        logger.warning("FIREBASE_CREDENTIALS_PATH unset — auth runs in dev mode")
+    s = get_settings()
+    raw_json = getattr(s, "FIREBASE_CREDENTIALS_JSON", "") or ""
+    path = s.FIREBASE_CREDENTIALS_PATH
+    if not raw_json and not path:
+        logger.warning("FIREBASE_CREDENTIALS_JSON/PATH unset — auth runs in dev mode")
         return False
     try:
+        import json
+
         import firebase_admin
         from firebase_admin import credentials
 
-        cred = credentials.Certificate(path)
+        # CI passes the service account as one JSON string; local dev uses a file.
+        cred = credentials.Certificate(json.loads(raw_json) if raw_json else path)
         _app = firebase_admin.initialize_app(cred)
         logger.info("Firebase Admin SDK initialized: project=%s", _app.project_id)
         return True

@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 
 import logging
 import threading
+
+from pymongo.errors import DuplicateKeyError
 from typing import Dict, List, Optional
 
 from app.db import mongo
@@ -54,9 +56,15 @@ class ArticleRepository:
         for a in articles:
             doc = _to_doc(a)
             doc_id = doc.pop("_id")
-            res = await db.articles.update_one(
-                {"_id": doc_id}, {"$set": doc}, upsert=True
-            )
+            try:
+                res = await db.articles.update_one(
+                    {"_id": doc_id}, {"$set": doc}, upsert=True
+                )
+            except DuplicateKeyError:
+                # Same URL already stored under a different id (e.g. an HN item
+                # and the direct feed entry). Keep the first; skip this one.
+                logger.info("skip duplicate url: %s", a.url)
+                continue
             if res.upserted_id is not None:
                 added += 1
         return added
