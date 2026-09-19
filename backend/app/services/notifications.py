@@ -49,7 +49,13 @@ def send_to_tokens(
         tokens=tokens,
     )
     resp = messaging.send_each_for_multicast(message)
+    # Tokens FCM says no longer exist (app uninstalled, data cleared, token
+    # rotated). Callers should delete these; resending to them never succeeds.
+    dead = [
+        tok for tok, r in zip(tokens, resp.responses)
+        if not r.success and isinstance(r.exception, (messaging.UnregisteredError, messaging.SenderIdMismatchError))
+    ]
     logger.info(
-        "FCM multicast: %d ok, %d failed", resp.success_count, resp.failure_count
+        "FCM multicast: %d ok, %d failed (%d dead tokens)", resp.success_count, resp.failure_count, len(dead)
     )
-    return {"success": resp.success_count, "failure": resp.failure_count}
+    return {"success": resp.success_count, "failure": resp.failure_count, "dead_tokens": dead}

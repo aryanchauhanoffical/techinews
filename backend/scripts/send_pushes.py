@@ -2,8 +2,8 @@
 
   instant  — stories scoring >= 85 published in the last 3 h, not yet pushed,
              to users on `instant`. At most 2 per run so nobody gets spammed.
-  daily    — once a day at the 08:00 IST run: top 5 of the last 24 h to users
-             on `daily_digest`.
+  daily    — once a day, on the first run inside the 02-12 UTC window: top 5
+             of the last 24 h to users on `daily_digest`.
   weekly   — Sundays at the same hour: top 10 of the week to `weekly_digest`.
 
 Every push carries the story image (FCM `image`), the article id for deep
@@ -32,7 +32,14 @@ from app.services.notifications import send_to_tokens  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s — %(message)s")
 log = logging.getLogger("pushes")
 
-DIGEST_HOUR_UTC = 2  # 08:00 IST edition; the :37 cron lands at 08:07 IST
+# Digest window, UTC. GitHub runs scheduled workflows on a best-effort basis:
+# measured over 65 collector runs (Sep 9-20), none started in hour 02, so a
+# digest keyed to one exact hour was never sent. Instead, the FIRST run inside
+# this window each day sends it (the `daily:YYYY-MM-DD` key prevents repeats).
+# 02:00-12:59 UTC = 07:30-18:29 IST: morning when the scheduler cooperates,
+# never in the middle of the night.
+DIGEST_HOUR_UTC = 2
+DIGEST_LAST_HOUR_UTC = 12
 INSTANT_MIN_SCORE = 85
 # Pop-art bell shown as the notification's large icon when a story has no image.
 BELL_IMAGE = "https://ajycieqvkssmbuctnqib.supabase.co/storage/v1/object/public/images/brand/notification-bell.jpg"
@@ -59,6 +66,16 @@ async def _send(db, key: str, kind: str, tokens: list[str], title: str, body: st
         log.info("DRY %s -> %d tokens | %s", kind, len(tokens), title)
         return {"dry": len(tokens)}
     res = send_to_tokens(tokens, title, body, data={"article_id": article_id, "kind": kind}, image=image)
+    dead = res.pop("dead_tokens", [])
+    if dead:
+        # Prune tokens FCM reports as gone so they stop inflating failure counts.
+        await db.users.update_many({"fcm_tokens": {"$in": dead}}, {"$pull": {"fcm_tokens": {"$in": dead}}})
+        log.info("pruned %d dead FCM tokens", len(dead))
+    if res["success"] == 0:
+        # Nothing was delivered. Do NOT record the key: recording it would mark
+        # this story/digest as sent and block the retry on the next run.
+        log.warning("%s: 0 delivered, %d failed; not recording so it can retry", key, res["failure"])
+        return res
     await db.pushes.insert_one({"_id": key, "kind": kind, "at": datetime.utcnow(), "sent": res["success"], "failed": res["failure"], "article_id": article_id})
     return res
 
@@ -111,9 +128,10 @@ async def main() -> int:
     try:
         now = datetime.utcnow()
         report = {"instant": await instant(db, args.dry_run)}
-        if args.force_digest == "daily" or now.hour == DIGEST_HOUR_UTC:
+        in_window = DIGEST_HOUR_UTC <= now.hour <= DIGEST_LAST_HOUR_UTC
+        if args.force_digest == "daily" or in_window:
             report["daily"] = await digest(db, "daily", args.dry_run)
-        if args.force_digest == "weekly" or (now.hour == DIGEST_HOUR_UTC and now.weekday() == 6):
+        if args.force_digest == "weekly" or (in_window and now.weekday() == 6):
             report["weekly"] = await digest(db, "weekly", args.dry_run)
         print(json.dumps(report, default=str, indent=2))
     finally:

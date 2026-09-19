@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -17,12 +19,18 @@ class FirebaseAuthRepository implements AuthRepository {
 
   final Dio _dio;
   final fb.FirebaseAuth _auth = fb.FirebaseAuth.instance;
+  StreamSubscription<String>? _tokenSub;
 
   @override
   Future<AppUser?> currentUser() async {
     final u = _auth.currentUser;
     if (u == null) return null;
-    return await _syncWithBackend() ?? _fromFirebase(u);
+    final user = await _syncWithBackend() ?? _fromFirebase(u);
+    // Re-register on every launch while signed in, not only at sign-in: the
+    // server prunes tokens FCM reports dead, and Android rotates tokens, so a
+    // returning user would otherwise silently stop receiving pushes.
+    unawaited(_registerFcmToken());
+    return user;
   }
 
   @override
@@ -101,6 +109,12 @@ class FirebaseAuthRepository implements AuthRepository {
       if (token != null) {
         await _dio.post('/api/v1/auth/fcm-token', data: {'token': token});
       }
+      // Keep the server in step when FCM rotates the token mid-session.
+      _tokenSub ??= messaging.onTokenRefresh.listen((t) {
+        if (_auth.currentUser != null) {
+          _dio.post('/api/v1/auth/fcm-token', data: {'token': t}).ignore();
+        }
+      });
     } catch (_) {
       // non-fatal — push just won't work until next successful registration
     }

@@ -125,13 +125,19 @@ class DiscoverScreen extends ConsumerWidget {
                           ]),
                         ),
                 ),
-                const SliverToBoxAdapter(child: SectionHeader('Funding', icon: AppIcons.finance, iconColor: AppColors.yellow, underline: AppColors.yellow, kicker: 'Rounds mentioned in the last 10 days')),
+                // Funding shows only rounds with a disclosed amount. The detector
+                // flags any story that mentions a company near money words, so
+                // "undisclosed" rows were mostly ordinary news mislabelled as
+                // rounds. A stated figure is the reliable signal; with none, the
+                // whole section stays hidden rather than showing a wrong label.
                 funding.when(
-                  loading: () => const SliverToBoxAdapter(child: StoryRowSkeleton()),
-                  error: (_, _) => const SliverToBoxAdapter(child: _Unavailable()),
-                  data: (items) => items.isEmpty
-                      ? const SliverToBoxAdapter(child: _Unavailable(text: 'No funding rounds spotted yet.'))
-                      : SliverList.list(children: [
+                  loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  data: (all) {
+                    final items = all.where((f) => f.amountUsd > 0).toList();
+                    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                    return SliverList.list(children: [
+                          const SectionHeader('Funding', icon: AppIcons.finance, iconColor: AppColors.yellow, underline: AppColors.yellow, kicker: 'Rounds with a disclosed amount, last 10 days'),
                           for (final f in items) ...[
                             InkWell(
                               onTap: () => context.push(AppRoutes.articlePath(f.id)),
@@ -154,7 +160,7 @@ class DiscoverScreen extends ConsumerWidget {
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
-                                        Text(f.amountUsd > 0 ? Format.money(f.amountUsd) : 'undisclosed', style: AppTypography.serif(16, weight: FontWeight.w700, color: AppColors.yellow)),
+                                        Text(Format.money(f.amountUsd), style: AppTypography.serif(16, weight: FontWeight.w700, color: AppColors.yellow)),
                                         Text(f.round, style: AppTypography.kicker()),
                                       ],
                                     ),
@@ -164,7 +170,8 @@ class DiscoverScreen extends ConsumerWidget {
                             ),
                             const GutterDivider(),
                           ],
-                        ]),
+                        ]);
+                  },
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
               ],
