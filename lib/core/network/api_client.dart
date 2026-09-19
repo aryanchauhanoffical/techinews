@@ -18,9 +18,12 @@ Dio buildDio({String? baseUrl}) {
   final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl ?? resolveBaseUrl(),
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 15),
+      // The API runs on Render's free tier, which sleeps when idle and takes
+      // 30-45 s to wake (measured 32.5 s on 2026-09-20). Timeouts must outlast
+      // a cold start or the first open after a quiet spell fails outright.
+      connectTimeout: const Duration(seconds: 25),
+      receiveTimeout: const Duration(seconds: 75),
+      sendTimeout: const Duration(seconds: 25),
       headers: const {'accept': 'application/json'},
     ),
   );
@@ -42,6 +45,23 @@ Dio buildDio({String? baseUrl}) {
           // Firebase not available — proceed unauthenticated
         }
         handler.next(options);
+      },
+      // One automatic retry for GETs that time out or can't connect: a request
+      // that dies while the server is waking usually succeeds immediately after.
+      onError: (e, handler) async {
+        final o = e.requestOptions;
+        final transient = e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+        if (transient && o.method == 'GET' && o.extra['retried'] != true) {
+          o.extra['retried'] = true;
+          try {
+            return handler.resolve(await dio.fetch(o));
+          } catch (_) {
+            // fall through with the original error
+          }
+        }
+        handler.next(e);
       },
     ),
   );
