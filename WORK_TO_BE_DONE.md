@@ -220,6 +220,7 @@
 - [x] Discover (real topics/repos/funding), Search, Inbox (real, derived), Profile (interests sheet), Saved, Settings
 - [x] Local persistence for saves/reads/interests/notification mode
 - [x] Android device pass 2026-09-09 (profile APK on Nothing CMF Phone 1; feed + discover OK)
+- [ ] API cold starts: Render free tier sleeps; GitHub cron keep-alive does NOT prevent it (median 201 min between runs, measured Sep 9-19). App now tolerates it (75 s timeout + 1 retry, needs next build). For a warm API in the demo/judging window: external 5-min pinger (UptimeRobot / cron-job.org, user signup) or paid Render instance.
 - [ ] Register release-key SHA-1 in Firebase (Google sign-in on release/profile builds)
 - [ ] RevenueCat: add Play Store app → `goog_` key → `REVENUECAT_STORE_KEY` (after Play Console listing)
 - [ ] iOS: register Firebase app, Notification Service Extension for images
