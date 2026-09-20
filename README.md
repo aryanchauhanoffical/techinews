@@ -122,6 +122,18 @@ flutter run -d chrome --web-port 3000    # web: everything except purchases
 flutter run                              # Android: full experience including the paywall
 ```
 
+**Demo build.** For showing the app without a purchase or a sign-in in the way:
+
+```bash
+flutter build apk --profile --dart-define=DEMO_MODE=true
+```
+
+Pro is unlocked locally, an anonymous Firebase session registers the device for
+push with no sign-in screen, onboarding replays on every launch, and pushes
+arriving while the app is open are drawn as an in-app banner. The flag is ANDed
+with `!kReleaseMode` in [`lib/core/config/demo_mode.dart`](lib/core/config/demo_mode.dart),
+so a store build ignores it and can never ship unlocked Pro.
+
 ## Repository map
 
 ```

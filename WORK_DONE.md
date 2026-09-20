@@ -443,3 +443,11 @@ Connected the Flutter app to the live Firebase project + authenticated backend.
 - **Submission kit** in `docs/submission/`: `DEVPOST.md`, `VIDEO_SCRIPT.md`, six 1179x2556 frameless screenshots (web build, 393x852 @3x). No paywall screenshot: RevenueCat does not run on web, it must come from the device.
 - Sideload build: `~/Downloads/techinews-test.apk` (profile, release-signed), verified to contain the corrected copy.
 
+## Sprint 16 — Demo build (2026-09-20)
+- `DEMO_MODE` dart-define (`lib/core/config/demo_mode.dart`), ANDed with `!kReleaseMode` so a store build ignores it. Verified by string-diffing the two APKs: demo-only symbols are tree-shaken out of the normal build.
+- Pro unlocked locally in `pro.dart` (`_statusOf` short-circuits); `canPurchase` stays true in demo so the paywall can still be shown with real offering prices.
+- `main.dart` resets onboarding + interests each launch and sets `instant` cadence; saves are kept. `DemoSession.start()` opens an anonymous Firebase session in the background and registers the FCM token, so push works with no sign-in screen.
+- **Anonymous auth was disabled in the Firebase project** (`ADMIN_ONLY_OPERATION`), so `signInAnonymously` — which the app's own "email" provider path already called — could never have worked. Enabled via the Identity Toolkit admin API. Backend `User.email` is now optional and the display-name fallback null-safe, so `/auth/verify` no longer 500s for a session with no email. Verified end to end with a minted anonymous token: verify → "Guest reader" user, fcm-token → ok. Test users deleted afterwards.
+- `push_overlay.dart`: in-app banner for foreground messages (Android draws nothing itself in the foreground) plus tap routing from `onMessageOpenedApp` and `getInitialMessage` to the article — deep-linking that was never wired.
+- Demo APK: `~/Downloads/techinews-demo.apk` (profile, release-signed, same package as the test build so it replaces it).
+
