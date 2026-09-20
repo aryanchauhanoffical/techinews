@@ -4,6 +4,16 @@
 
 ---
 
+
+## Before submitting (Shipaton Next Gen, deadline 30 Sep 2026 23:45 PDT; aim for 27 Sep)
+- [ ] **User:** install `techinews-test.apk`, sign in with Google. This is the gate for push tokens and for Pro following the account. Unverified on device since the SHA-1 fix.
+- [ ] After sign-in: send a real push and confirm it arrives. If it cannot be made to work, do not show instant alerts as working in the video.
+- [ ] **Product honesty:** the Pro feature is called "Instant alerts" but the collector runs ~6x/day, so a push can trail the story by hours. Either rename it (e.g. "Priority alerts") or trigger `collect.yml` from a reliable external scheduler via `workflow_dispatch`.
+- [ ] **User:** paywall + purchase screenshots from the phone (web cannot render RevenueCat).
+- [ ] **User:** record the video from `docs/submission/VIDEO_SCRIPT.md`; paste `DEVPOST.md`; fill the two placeholder links in README.
+- [ ] Optional: ask in the Shipaton Devpost forum whether Test Store purchases satisfy the SDK requirement for Next Gen.
+- [ ] Splash artwork (user's PNG) contains the words "Your hourly digest"; regenerate if the claim matters.
+
 ## Phase S — Shipaton 2026 Next Gen submission (deadline 2026-09-30 11:45pm PDT)
 
 > Judged on: app idea clarity, functional progress, thoughtful RevenueCat integration, technical choices. Video + open-source repo. No store release.

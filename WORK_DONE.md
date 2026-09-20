@@ -432,3 +432,14 @@ Connected the Flutter app to the live Firebase project + authenticated backend.
 - `backend/app/services/ai/repo_hook.py`: README (GitHub API, stripped of badges/html/code) → Gemini → `{hook ≤48ch, pitch ≤110ch, alt_to}` stored on `GithubRepo`; `Pipeline._hook_repos` applies at enrich time (title → `owner/name: hook`, summary → pitch); `backfill_repo_hooks(12)` per run. Seeded 40 live.
 - `backend/app/services/ai/push_copy.py`: Blinkit/Zepto-style push writer (emoji-led title ≤38ch, body ≤90ch, benefit first, no lies) + deterministic fallback. `send_pushes.py` uses it for breaking + digest ("☕ 5 stories before standup"); fallback image = pop bell on Supabase (`images/brand/notification-bell.jpg`).
 - Flutter: `GithubRepo.hook/pitch/altTo`; `RepoCard` leads with the hook in Shantell 19 + pink "Free alternative to X" tag; `pro.dart` picks `REVENUECAT_STORE_KEY` in release, test key otherwise.
+
+## Sprint 15 — Submission readiness, found by measuring (2026-09-20)
+- **Rules check (Shipaton):** Next Gen is exempt from store publication but the repo MUST contain an open source licence file. Added `LICENSE` (MIT). Rules do not mention the Test Store either way.
+- **GitHub's scheduler is best-effort.** Measured: keep-alive median gap 201 min (all 67 gaps > Render's 15-min sleep); collector ~6 runs/day, 63/65 green. Nothing may depend on a run landing at an exact time.
+- **Pushes had never been deliverable.** Daily digest was keyed to UTC hour 02; 0 of 65 runs started then. Now: first run inside 02-12 UTC, deduped per day. A real send returned 0 ok / 3 failed: all stored tokens were `NotRegistered` leftovers from June installs. `send_to_tokens` now returns dead tokens, `send_pushes.py` prunes them and does not record a zero-delivery send (so it retries). App re-registers its FCM token on every signed-in launch and on `onTokenRefresh`.
+- **Cold starts:** Render wake measured at 32.5 s vs a 30 s app timeout = failed first load. Now 75 s receive timeout + one GET retry. UptimeRobot pings every 5 min (user's account).
+- **Discover → Funding** lists only rounds with `amountUsd > 0`; section hidden when none.
+- **Copy:** removed "runs every hour" from paywall, settings, empty feed. README rewritten to the product as built (mermaid architecture, measured cadence, verified vs unverified status).
+- **Submission kit** in `docs/submission/`: `DEVPOST.md`, `VIDEO_SCRIPT.md`, six 1179x2556 frameless screenshots (web build, 393x852 @3x). No paywall screenshot: RevenueCat does not run on web, it must come from the device.
+- Sideload build: `~/Downloads/techinews-test.apk` (profile, release-signed), verified to contain the corrected copy.
+
