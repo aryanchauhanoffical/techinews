@@ -14,7 +14,8 @@ class NotificationMode(str, Enum):
 
 class User(BaseModel):
     id: str
-    email: EmailStr
+    # Anonymous (guest) Firebase sessions carry no email.
+    email: Optional[EmailStr] = None
     display_name: str
     photo_url: Optional[str] = None
     interests: List[str] = []

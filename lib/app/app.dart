@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
+import '../core/widgets/push_overlay.dart';
 import '../services/providers.dart';
 import 'router.dart';
 
@@ -21,6 +22,9 @@ class TechiNewsApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       routerConfig: router,
+      // Pushes that land while the app is open get an in-app banner; Android
+      // draws nothing itself in the foreground.
+      builder: (context, child) => PushOverlay(child: child ?? const SizedBox.shrink()),
     );
   }
 }

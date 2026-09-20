@@ -4,6 +4,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
+import '../core/config/demo_mode.dart';
+
 /// TechiNews Pro, powered by RevenueCat.
 ///
 /// One entitlement, `pro`, gates the things that cost us money or attention:
@@ -23,7 +25,9 @@ class ProState {
   final String? error;
   const ProState(this.status, {this.offerings, this.error});
   bool get isPro => status == ProStatus.pro;
-  bool get canPurchase => status == ProStatus.free && offerings?.current != null;
+  /// A demo build is already Pro, but the paywall stays purchasable so it can
+  /// be shown on purpose with real prices from the offering.
+  bool get canPurchase => (status == ProStatus.free || kDemoMode) && offerings?.current != null;
 }
 
 class ProNotifier extends StateNotifier<ProState> {
@@ -43,7 +47,7 @@ class ProNotifier extends StateNotifier<ProState> {
         : (dotenv.maybeGet('REVENUECAT_API_KEY') ?? '');
     final supported = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
     if (key.isEmpty || !supported) {
-      state = const ProState(ProStatus.unavailable);
+      state = ProState(kDemoMode ? ProStatus.pro : ProStatus.unavailable);
       return;
     }
     try {
@@ -54,11 +58,15 @@ class ProNotifier extends StateNotifier<ProState> {
       final offerings = await Purchases.getOfferings();
       state = ProState(_statusOf(info), offerings: offerings);
     } catch (e) {
-      state = ProState(ProStatus.unavailable, error: e.toString());
+      state = ProState(kDemoMode ? ProStatus.pro : ProStatus.unavailable, error: e.toString());
     }
   }
 
-  ProStatus _statusOf(CustomerInfo info) => info.entitlements.active.containsKey(entitlement) ? ProStatus.pro : ProStatus.free;
+  // A demo build unlocks every gate locally. RevenueCat is still configured
+  // and still the source of truth for prices; only the entitlement check is
+  // short-circuited, and only in a non-release build (see kDemoMode).
+  ProStatus _statusOf(CustomerInfo info) =>
+      kDemoMode || info.entitlements.active.containsKey(entitlement) ? ProStatus.pro : ProStatus.free;
 
   void _apply(CustomerInfo info) {
     state = ProState(_statusOf(info), offerings: state.offerings);

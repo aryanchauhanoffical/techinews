@@ -33,7 +33,7 @@ async def upsert_from_firebase(decoded: dict) -> User:
     now = datetime.utcnow()
     profile = {
         "email": decoded.get("email"),
-        "display_name": decoded.get("name") or decoded.get("email", "").split("@")[0] or "TechiNews User",
+        "display_name": decoded.get("name") or (decoded.get("email") or "").split("@")[0] or "Guest reader",
         "photo_url": decoded.get("picture"),
     }
     defaults = {

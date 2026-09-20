@@ -123,7 +123,9 @@ class FirebaseAuthRepository implements AuthRepository {
   AppUser _fromFirebase(fb.User u) => AppUser(
         id: u.uid,
         email: u.email ?? 'unknown@techinews.app',
-        displayName: u.displayName ?? 'TechiNews User',
+        // An anonymous session is a guest who happens to have a token, not a
+        // signed-in account; say so rather than inventing a name.
+        displayName: u.displayName ?? (u.isAnonymous ? 'Guest reader' : 'TechiNews User'),
         photoUrl: u.photoURL,
         createdAt: u.metadata.creationTime ?? DateTime.now(),
       );
