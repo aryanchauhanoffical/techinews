@@ -44,7 +44,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                 Text('The alerts, not\njust the feed.', style: t.displayMedium),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'Reading stays free. Pro pays for the collector that runs every hour and the pushes that go out the minute a story matters.',
+                  'Reading stays free. Pro pays for the collector that runs through the day and the pushes that go out when a story matters.',
                   style: t.bodyLarge,
                 ),
                 const SizedBox(height: AppSpacing.xl),

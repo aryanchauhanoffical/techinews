@@ -85,7 +85,7 @@ class FeedScreen extends ConsumerWidget {
                           figure: Figure.meditating,
                           hue: AppColors.purple,
                           title: 'Nothing here yet',
-                          body: 'The first collection run has not landed. It runs every hour, so check back shortly.',
+                          body: 'The first collection run has not landed. It runs several times a day, so check back shortly.',
                           actionLabel: 'Adjust interests',
                           onAction: () => context.go(AppRoutes.profile),
                         ),

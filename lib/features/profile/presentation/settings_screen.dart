@@ -90,7 +90,7 @@ class SettingsScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _fact('Sources', 'Forty feeds: lab blogs, tech press, newsletters, subreddits, GitHub releases, Hacker News, arXiv, Hugging Face.'),
-                _fact('Cadence', 'A collector runs every hour, ranks what changed, and summarises the top thirty.'),
+                _fact('Cadence', 'A collector runs several times a day, ranks what changed, and summarises the top thirty.'),
                 _fact('Ranking', 'Source weight, engagement, and recency. No source gets more than four of the top slots.'),
               ],
             ),
